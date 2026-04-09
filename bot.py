@@ -23,7 +23,8 @@ def enviar_mensagem(numero, mensagem):
         "text": {"body": mensagem}
     }
 
-    requests.post(url, headers=headers, json=data)
+    r = requests.post(url, headers=headers, json=data)
+print(r.text)
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
