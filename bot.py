@@ -6,8 +6,8 @@ app = Flask(__name__)
 
 VERIFY_TOKEN = "lendarios_token"
 
-TOKEN = "SEU_TOKEN_WHATSAPP"
-PHONE_NUMBER_ID = "SEU_PHONE_NUMBER_ID"
+TOKEN = "EAAsCShhhFUoBRLdZA8drnlca021m56hXfeLZCmUZAM9lTezLjK5w1x3dgyqF6htEr5J45JVZA5xX5pNh65eZBJWSlNYyjSE7dZCASzZCreHztKtdVFrfYrpS0jY0ACv7Qyxl5tA4C0t2flX8krOiO4WL0B5WasMxIgceqW0t9lmCVbvzTDawLG7LQkZBViTsUtVPqtSXJTZAquCZCpzs5CRN7StfcDlWv8kv7L4Jb4hXJo35wvZC4UmOeGboZChF5RfvUbZCLWQgOmKAi463i0JzinjfVlvvgawZDZD"
+PHONE_NUMBER_ID = "1094450353745202"
 
 def enviar_mensagem(numero, mensagem):
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
