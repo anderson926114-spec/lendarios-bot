@@ -51,6 +51,8 @@ def webhook():
         try:
 
             numero = data["entry"][0]["changes"][0]["value"]["messages"][0]["from"]
+            if numero.startswith("5548") and len(numero) == 12:
+    numero = "55489" + numero[4:]
 
             menu = """🏆 LENDÁRIOS
 
