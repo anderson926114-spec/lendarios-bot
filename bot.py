@@ -46,28 +46,49 @@ def webhook():
 
         data = request.get_json()
 
-        print("EVENTO:", data)
-
         try:
-
             numero = data["entry"][0]["changes"][0]["value"]["messages"][0]["from"]
+            mensagem = data["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
+
+            # Corrigir número (caso venha sem 9)
             if numero.startswith("5548") and len(numero) == 12:
                 numero = "55489" + numero[4:]
 
-            menu = """🏆 LENDÁRIOS
+            print(numero, mensagem)
 
-1️⃣ Cadastro de atleta
-2️⃣ Solicitar atleta
-3️⃣ Jogos disponíveis
-4️⃣ Ranking
-5️⃣ Falar com administrador
+            # MENU
+            if mensagem.lower() in ["oi", "menu", "ola", "olá"]:
+                resposta = """🏆 LENDÁRIOS
+
+1️⃣ Sou atleta
+2️⃣ Solicitar jogador
+3️⃣ Ver jogos
+4️⃣ Falar com administrador
+0️⃣ Sair
 """
 
-            enviar_mensagem(numero, menu)
+            elif mensagem == "1":
+                resposta = "⚽ Cadastro de atleta em breve!"
 
-        except Exception as erro:
+            elif mensagem == "2":
+                resposta = "📅 Solicitação de jogador em breve!"
 
-            print("ERRO:", erro)
+            elif mensagem == "3":
+                resposta = "📋 Lista de jogos em breve!"
+
+            elif mensagem == "4":
+                resposta = "👑 Fale com o administrador."
+
+            elif mensagem == "0":
+                resposta = "👋 Você saiu do menu."
+
+            else:
+                resposta = "❌ Opção inválida. Digite *menu* para voltar."
+
+            enviar(numero, resposta)
+
+        except Exception as e:
+            print("ERRO:", e)
 
         return "ok"
 
