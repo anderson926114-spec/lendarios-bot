@@ -18,12 +18,11 @@ usuarios = {}
 solicitacoes = {}
 
 # =========================
-# NORMALIZAR NÚMERO (RESOLVE 9 DO BRASIL)
+# NORMALIZAR NÚMERO (CORREÇÃO DO 9)
 # =========================
 def normalizar_numero(numero):
     numero = "".join(filter(str.isdigit, numero))
 
-    # Brasil
     if numero.startswith("55") and len(numero) == 12:
         numero = numero[:4] + "9" + numero[4:]
 
@@ -84,10 +83,7 @@ def enviar(numero, texto):
         "text": {"body": texto}
     }
 
-    r = requests.post(url, headers=headers, json=payload)
-
-    print("STATUS:", r.status_code)
-    print("RESPOSTA:", r.text)
+    requests.post(url, headers=headers, json=payload)
 
 # =========================
 # WEBHOOK
@@ -95,16 +91,11 @@ def enviar(numero, texto):
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
 
-    # VERIFICAÇÃO META
     if request.method == "GET":
-        token = request.args.get("hub.verify_token")
-        challenge = request.args.get("hub.challenge")
-
-        if token == VERIFY_TOKEN:
-            return challenge
+        if request.args.get("hub.verify_token") == VERIFY_TOKEN:
+            return request.args.get("hub.challenge")
         return "erro", 403
 
-    # MENSAGENS
     if request.method == "POST":
 
         data = request.get_json()
@@ -133,18 +124,18 @@ def webhook():
                     usuarios[numero]["tipos"] = []
                     usuarios[numero]["etapa"] = "cidade"
 
-                    enviar(numero, """📍 Escolha uma cidade:
+                    enviar(numero, """📍 Escolha sua cidade:
 
 1 São José
 2 Palhoça
 3 Biguaçu
-4 Florianópolis/Continente
-5 Florianópolis/Ilha
+4 Florianópolis / Continente
+5 Florianópolis / Ilha
 """)
                     return "ok"
 
                 # -------------------------
-                # CIDADES
+                # CIDADES (MULTIPLAS)
                 # -------------------------
                 if etapa == "cidade":
 
@@ -152,8 +143,8 @@ def webhook():
                         "1": "São José",
                         "2": "Palhoça",
                         "3": "Biguaçu",
-                        "4": "Florianópolis/Continente",
-                        "5": "Florianópolis/Ilha"
+                        "4": "Florianópolis / Continente",
+                        "5": "Florianópolis / Ilha"
                     }
 
                     if texto in cidades:
@@ -181,24 +172,20 @@ Deseja adicionar mais cidades? (S/N)
                             "1": "São José",
                             "2": "Palhoça",
                             "3": "Biguaçu",
-                            "4": "Florianópolis/Continente",
-                            "5": "Florianópolis/Ilha"
+                            "4": "Florianópolis / Continente",
+                            "5": "Florianópolis / Ilha"
                         }
 
                         lista = ""
                         i = 1
-                        novo_map = {}
 
                         for k, v in cidades.items():
                             if v not in escolhidas:
-                                novo_map[str(i)] = v
                                 lista += f"{i} {v}\n"
                                 i += 1
 
-                        usuarios[numero]["map_cidades"] = novo_map
-                        usuarios[numero]["etapa"] = "cidade"
-
                         enviar(numero, "📍 Escolha outra cidade:\n\n" + lista)
+                        usuarios[numero]["etapa"] = "cidade"
                         return "ok"
 
                     else:
@@ -206,14 +193,14 @@ Deseja adicionar mais cidades? (S/N)
 
                         enviar(numero, """⚽ Escolha o tipo:
 
-1 Goleiro
-2 Linha
-3 Árbitro
+1 🧤 Goleiro
+2 ⚽ Linha
+3 🧑‍⚖️ Árbitro
 """)
                         return "ok"
 
                 # -------------------------
-                # TIPOS
+                # TIPOS (MULTIPLOS)
                 # -------------------------
                 if etapa == "tipo":
 
@@ -242,28 +229,24 @@ Deseja adicionar mais tipos? (S/N)
 
                     if texto == "s":
 
-                        escolhidos = usuarios[numero]["tipos"]
-
                         tipos = {
                             "1": "Goleiro",
                             "2": "Linha",
                             "3": "Árbitro"
                         }
 
+                        escolhidos = usuarios[numero]["tipos"]
+
                         lista = ""
                         i = 1
-                        novo_map = {}
 
                         for k, v in tipos.items():
                             if v not in escolhidos:
-                                novo_map[str(i)] = v
                                 lista += f"{i} {v}\n"
                                 i += 1
 
-                        usuarios[numero]["map_tipos"] = novo_map
-                        usuarios[numero]["etapa"] = "tipo"
-
                         enviar(numero, "⚽ Escolha outro tipo:\n\n" + lista)
+                        usuarios[numero]["etapa"] = "tipo"
                         return "ok"
 
                     else:
@@ -288,16 +271,33 @@ Deseja adicionar mais tipos? (S/N)
 
                         enviar(numero, f"""🏆 Cadastro concluído!
 
-Nome: {dados['nome']}
-Cidades: {', '.join(dados['cidades'])}
-Tipos: {', '.join(dados['tipos'])}
+👤 Nome: {dados['nome']}
+📍 Cidades: {', '.join(dados['cidades'])}
+⚽ Tipos: {', '.join(dados['tipos'])}
 """)
 
                         del usuarios[numero]
                         return "ok"
 
             # =========================
-            # MENU
+            # MENU PRINCIPAL (ORIGINAL MELHORADO)
+            # =========================
+            if texto in ["oi", "menu"]:
+
+                enviar(numero, """🏆 LENDÁRIOS
+
+Escolha uma opção:
+
+1 🧤 Cadastro de atleta
+2 ⚽ Solicitar atleta
+3 📋 Meus jogos
+4 👑 Falar com administrador
+5 🚪 Sair
+""")
+                return "ok"
+
+            # =========================
+            # OPÇÕES
             # =========================
             if texto == "1":
                 usuarios[numero] = {"etapa": "nome"}
@@ -305,20 +305,20 @@ Tipos: {', '.join(dados['tipos'])}
                 return "ok"
 
             elif texto == "2":
-                enviar(numero, "📍 Solicitação em breve")
+                solicitacoes[numero] = {"etapa": "cidade"}
+                enviar(numero, "📍 Qual a cidade do jogo?")
                 return "ok"
 
             elif texto == "3":
-                enviar(numero, "📋 Em breve jogos")
+                enviar(numero, "📋 Seus jogos aparecerão aqui em breve")
                 return "ok"
 
-            else:
-                enviar(numero, """🏆 LENDÁRIOS
+            elif texto == "4":
+                enviar(numero, "👑 Contato administrador: em breve")
+                return "ok"
 
-1 Cadastro de atleta
-2 Solicitar atleta
-3 Ver jogos
-""")
+            elif texto == "5":
+                enviar(numero, "👋 Você saiu do sistema")
                 return "ok"
 
         except Exception as e:
@@ -331,10 +331,7 @@ Tipos: {', '.join(dados['tipos'])}
 # =========================
 @app.route("/")
 def home():
-    return "BOT LENDARIOS ONLINE"
+    return "BOT LENDARIOS ONLINE 🚀"
 
-# =========================
-# START
-# =========================
 if __name__ == "__main__":
     app.run(port=5000)
