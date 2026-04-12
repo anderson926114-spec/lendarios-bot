@@ -8,9 +8,10 @@ VERIFY_TOKEN = "lendarios_token"
 TOKEN = "EAAsCShhhFUoBRO66HuKZCcs6gfPlPDDtSD3vZBuHRScteFn3RnuMzzqNh2P2Ow4bIU5QSvYGNNeiZCapCxQZB56sZBbxEPwaUzj89QVE16yWhbjBQIw0fRAI7iTjwoLZAklZBii6n3fmPYzCQ5X2wEeZBDDoYNmamJyVxsLrLjHZCBJoQKW6ruSn3W76gFiuTosH5gc9KTl5lSZCfrIn6POecy2FmeGry9Enn4JHBpdPNq9tCLNI689g7eESj441RZC6cU9ZBVQPieTkrrBattkUVdyWFPyggAZDZD"
 PHONE_NUMBER_ID = "1094450353745202"
 
-# Dicionário para controlar o fluxo de cadastro
+# Variável global para armazenar os cadastros em andamento
 usuarios = {}
 
+# FUNÇÃO PARA ENVIAR MENSAGEM
 def enviar(numero, texto):
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
     headers = {
@@ -26,70 +27,76 @@ def enviar(numero, texto):
     r = requests.post(url, headers=headers, json=data)
     print("ENVIO:", r.status_code, r.text)
 
+
+# WEBHOOK
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
+    # Validação do Webhook (GET)
     if request.method == "GET":
         token = request.args.get("hub.verify_token")
         challenge = request.args.get("hub.challenge")
         if token == VERIFY_TOKEN:
             return challenge
-        return "Token inválido", 403
+        return "Token de verificação inválido", 403
 
+    # Processamento de Mensagens (POST)
     if request.method == "POST":
         data = request.get_json()
         try:
-            # Extração da mensagem
-            value = data["entry"][0]["changes"][0]["value"]
-            if "messages" in value:
-                numero = value["messages"][0]["from"]
-                mensagem = value["messages"][0]["text"]["body"].lower().strip()
+            # Verifica se há uma mensagem válida no JSON
+            if "messages" in data["entry"][0]["changes"][0]["value"]:
+                numero = data["entry"][0]["changes"][0]["value"]["messages"][0]["from"]
+                mensagem = data["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
 
-                # Ajuste para números de SC
+                # Ajuste de DDD para Santa Catarina
                 if numero.startswith("5548") and len(numero) == 12:
                     numero = "55489" + numero[4:]
 
-                print(f"Número: {numero} | Mensagem: {mensagem}")
+                mensagem_limpa = mensagem.lower().strip()
+                print(f"Recebido: {numero} -> {mensagem_limpa}")
 
-                # --- FLUXO DE CADASTRO ATIVO ---
+                # --- 1º PRIORIDADE: SE O USUÁRIO JÁ ESTÁ NO MEIO DO CADASTRO ---
                 if numero in usuarios:
                     etapa = usuarios[numero]["etapa"]
 
                     if etapa == "nome":
-                        usuarios[numero]["nome"] = mensagem.title()
+                        usuarios[numero]["nome"] = mensagem # Salva o nome como o usuário digitou
                         usuarios[numero]["etapa"] = "cidade"
                         enviar(numero, "📍 Qual sua cidade?")
                         return "ok"
 
                     elif etapa == "cidade":
-                        usuarios[numero]["cidade"] = mensagem.title()
+                        usuarios[numero]["cidade"] = mensagem
                         usuarios[numero]["etapa"] = "tipo"
                         enviar(numero, "⚽ Tipo:\n1 Goleiro\n2 Linha\n3 Árbitro")
                         return "ok"
 
                     elif etapa == "tipo":
                         tipos = {"1": "Goleiro", "2": "Linha", "3": "Árbitro"}
-                        if mensagem in tipos:
-                            usuarios[numero]["tipo"] = tipos[mensagem]
+                        if mensagem_limpa in tipos:
+                            usuarios[numero]["tipo"] = tipos[mensagem_limpa]
                             dados = usuarios[numero]
                             enviar(numero, f"✅ Cadastro concluído!\n\nNome: {dados['nome']}\nCidade: {dados['cidade']}\nTipo: {dados['tipo']}")
-                            del usuarios[numero] # Finaliza cadastro
+                            del usuarios[numero] # Remove da memória após finalizar
                         else:
-                            enviar(numero, "Opção inválida. Escolha 1, 2 ou 3.")
+                            enviar(numero, "Por favor, escolha uma opção válida:\n1 Goleiro\n2 Linha\n3 Árbitro")
                         return "ok"
 
-                # --- MENU INICIAL (Se não estiver no cadastro) ---
-                if mensagem == "1": # Exemplo: Opção 1 inicia cadastro
+                # --- 2º PRIORIDADE: MENU INICIAL (Se não estiver cadastrando) ---
+                if mensagem_limpa == "cadastro" or mensagem_limpa == "1":
                     usuarios[numero] = {"etapa": "nome"}
-                    enviar(numero, "Iniciando cadastro... Qual o seu nome completo?")
+                    enviar(numero, "📝 Vamos começar! Qual o seu nome completo?")
                 else:
-                    # Este é o menu que aparece sempre que não há um cadastro em curso
-                    enviar(numero, "🤖 *BOT LENDÁRIOS*\n\n1 - Iniciar Cadastro\n2 - Ver Horários\n3 - Outras Informações")
+                    # Se ele digitar qualquer outra coisa fora do cadastro
+                    enviar(numero, "🤖 *BOT LENDÁRIOS*\n\nDigite *1* ou *Cadastro* para iniciar seu registro.")
 
         except Exception as e:
             print(f"Erro no processamento: {e}")
 
-        return "EVENT_RECEIVED", 200
+        return "ok", 200
 
+
+# ROTA PRINCIPAL
 @app.route("/")
 def home():
     return "BOT LENDÁRIOS ONLINE"
