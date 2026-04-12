@@ -62,7 +62,7 @@ def webhook():
 
                     elif etapa == "tipo":
                         tipos = {"1": "Goleiro", "2": "Linha", "3": "Árbitro"}
-                        tipo_escolhido = tipos.get(texto, "Não definido")
+                        usuarios[numero]["tipo"] = tipos.get(texto, "Não definido")
                         dados = usuarios[numero]
                         enviar(numero, f"✅ Cadastro concluído!\n\nNome: {dados['nome']}\nCidade: {dados['cidade']}\nTipo: {tipo_escolhido}")
                         del usuarios[numero]
