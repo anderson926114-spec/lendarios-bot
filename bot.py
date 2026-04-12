@@ -73,8 +73,21 @@ def webhook():
                     # Texto idêntico à Foto 2
                     enviar(numero, "⚽ *Cadastro de Atleta*\n\nDigite seu nome para começar:")
                 
-                elif texto in ["2", "3", "4", "0"]:
-                    enviar(numero, "Opção em construção...")
+                elif mensagem == "1":
+                resposta = "⚽ Cadastro de atleta em breve!"
+
+                elif mensagem == "2":
+                resposta = "📅 Solicitação de jogador em breve!"
+
+                elif mensagem == "3":
+                resposta = "📋 Lista de jogos em breve!"
+
+                elif mensagem == "4":
+                resposta = "👑 Fale com o administrador."
+
+                elif mensagem == "0":
+                resposta = "👋 Você saiu do menu."
+
                 
                 else:
                     # Texto idêntico à Foto 1
