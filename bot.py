@@ -1,51 +1,100 @@
 from flask import Flask, request
 import requests
+import sqlite3
 
 app = Flask(__name__)
 
 # CONFIGURAÇÕES
 VERIFY_TOKEN = "lendarios_token"
-TOKEN = "EAAsCShhhFUoBRA8clslnR8NcZApGDKN5o4VBVZBeCQYdDcAG9ruxgQGspQu9YolH2IC0Ng7cLbhsE4mDr9aBwZCLzcQwGmX24FE31xWaZB9nRCZBlqf3RSHZCkJI1BWm3MwkfSkI3tZAjMlzbS42q8QpKy5J2ZBj2Sp7T5N6FFTkmWIrzTnD3VlKe6NuPnYXgN2IkmZBIIZBAafzQojOTEk3a8ZCQ8VO1Lz5qztg3kWjCWe6R8ZBv8w6Ya6LynNoLT01Uida74gBNtDt37awuXWeNhPGuhSl"
-PHONE_NUMBER_ID = "1094450353745202"
+TOKEN = "SEU_TOKEN_AQUI"
+PHONE_NUMBER_ID = "SEU_PHONE_NUMBER_ID_AQUI"
 
-# Dicionário de estados (quem está em qual etapa)
+# CONTROLE DE ETAPAS
 usuarios = {}
 
+# =========================
+# BANCO DE DADOS
+# =========================
+def init_db():
+    conn = sqlite3.connect("lendarios.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS atletas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        numero TEXT,
+        nome TEXT,
+        cidade TEXT,
+        tipo TEXT
+    )
+    """)
+
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# =========================
+# ENVIAR MENSAGEM
+# =========================
 def enviar(numero, texto):
+
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-    headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
-    data = {
+
+    headers = {
+        "Authorization": f"Bearer {TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
         "messaging_product": "whatsapp",
         "to": numero,
         "type": "text",
         "text": {"body": texto}
     }
-    r = requests.post(url, headers=headers, json=data)
-    print(f"Status Envio: {r.status_code}") # Para debug
 
+    r = requests.post(url, headers=headers, json=payload)
+
+    print("STATUS ENVIO:", r.status_code)
+    print("RESPOSTA:", r.text)
+
+# =========================
+# WEBHOOK
+# =========================
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
+
     if request.method == "GET":
         token = request.args.get("hub.verify_token")
         challenge = request.args.get("hub.challenge")
+
         if token == VERIFY_TOKEN:
             return challenge
-        return "Erro", 403
+        return "erro", 403
 
     if request.method == "POST":
+
         data = request.get_json()
+
         try:
             if "messages" in data["entry"][0]["changes"][0]["value"]:
-                msg_data = data["entry"][0]["changes"][0]["value"]["messages"][0]
-                numero = msg_data["from"]
-                # Usei 'texto' como variável padrão
-                texto = msg_data["text"]["body"].strip().lower()
-                
+
+                msg = data["entry"][0]["changes"][0]["value"]["messages"][0]
+
+                numero = msg["from"]
+                texto = msg["text"]["body"].strip().lower()
+
+                # Corrigir número sem 9
                 if numero.startswith("5548") and len(numero) == 12:
                     numero = "55489" + numero[4:]
 
-                # --- 1º PRIORIDADE: FLUXO DE CADASTRO ATIVO ---
+                print(numero, texto)
+
+                # =========================
+                # CADASTRO (PRIORIDADE)
+                # =========================
                 if numero in usuarios:
+
                     etapa = usuarios[numero]["etapa"]
 
                     if etapa == "nome":
@@ -61,13 +110,14 @@ def webhook():
                         return "ok"
 
                     elif etapa == "tipo":
+
                         tipos = {
                             "1": "Goleiro",
                             "2": "Linha",
                             "3": "Árbitro"
                         }
 
-                        print("Recebido tipo:", texto)  # DEBUG
+                        print("TIPO RECEBIDO:", texto)
 
                         if texto not in tipos:
                             enviar(numero, "❌ Opção inválida.\nDigite:\n1 Goleiro\n2 Linha\n3 Árbitro")
@@ -90,52 +140,66 @@ def webhook():
 
                         enviar(numero, f"""✅ Cadastro concluído!
 
-                  Nome: {dados['nome']}
-                  Cidade: {dados['cidade']}
-                  Tipo: {dados['tipo']}
-                  """)
+Nome: {dados['nome']}
+Cidade: {dados['cidade']}
+Tipo: {dados['tipo']}
+""")
 
-                       del usuarios[numero]
-                       return "ok"
+                        del usuarios[numero]
+                        return "ok"
 
-                # --- 2º PRIORIDADE: MENU PRINCIPAL ---
-                # Corrigido: Agora todas as verificações usam a variável 'texto'
+                # =========================
+                # MENU PRINCIPAL
+                # =========================
                 if texto == "1":
                     usuarios[numero] = {"etapa": "nome"}
-                    enviar(numero, "⚽ *Cadastro de Atleta*\n\nDigite seu nome para começar:")
+                    enviar(numero, "⚽ *Cadastro de Atleta*\n\nDigite seu nome:")
+                    return "ok"
 
                 elif texto == "2":
                     enviar(numero, "📅 Solicitação de jogador em breve!")
+                    return "ok"
 
                 elif texto == "3":
                     enviar(numero, "📋 Lista de jogos em breve!")
+                    return "ok"
 
                 elif texto == "4":
                     enviar(numero, "👑 Fale com o administrador.")
+                    return "ok"
 
                 elif texto == "0":
-                    enviar(numero, "👋 Você saiu do menu.")
-                
+                    enviar(numero, "👋 Você saiu.")
+                    return "ok"
+
                 else:
-                    menu = (
-                        "🏆 *LENDÁRIOS*\n\n"
-                        "Escolha uma opção:\n\n"
-                        "1️⃣ Sou atleta\n"
-                        "2️⃣ Solicitar jogador\n"
-                        "3️⃣ Ver jogos\n"
-                        "4️⃣ Falar com administrador\n"
-                        "0️⃣ Sair"
-                    )
+                    menu = """🏆 *LENDÁRIOS*
+
+Escolha uma opção:
+
+1️⃣ Sou atleta
+2️⃣ Solicitar jogador
+3️⃣ Ver jogos
+4️⃣ Falar com administrador
+0️⃣ Sair
+"""
                     enviar(numero, menu)
+                    return "ok"
 
         except Exception as e:
-            print(f"Erro no processamento: {e}")
-            
+            print("ERRO:", e)
+
         return "ok", 200
 
+# =========================
+# HOME
+# =========================
 @app.route("/")
 def home():
-    return "BOT ONLINE"
+    return "BOT LENDARIOS ONLINE"
 
+# =========================
+# RUN
+# =========================
 if __name__ == "__main__":
     app.run(port=5000)
