@@ -9,8 +9,9 @@ VERIFY_TOKEN = "lendarios_token"
 TOKEN = "EAAsCShhhFUoBRJZBmQ9jl9vZCcY58DN3GUQTbc7BcqZCSYU8IIwaLQRx1TSmsNgYRcEhdUuwXBPqQosCOBUV9zGQacPNInHo72SxCZAmAbWMOU89KHYLnAUwZBA9VYQF8CIPaeuFaVSfDkypkLaHBJCihP3kbH6NnJwJcQ0ZCyrj9l6gzZAY64y3BzfxTAVYkuAkyaP1FCycZBrTzqP6RQmAq1ZAGBbiIy976woQoOAZArOV4F6I7E3bjUsZA1hj45APh5EfSROyhN65ZCkwkeI5nzqqDB0eKwZDZD"
 PHONE_NUMBER_ID = "1094450353745202"
 
-# CONTROLE DE ETAPAS
+# CONTROLE
 usuarios = {}
+solicitacoes = {}
 
 # =========================
 # BANCO DE DADOS
@@ -29,6 +30,19 @@ def init_db():
     )
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS solicitacoes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        numero TEXT,
+        cidade TEXT,
+        tipo TEXT,
+        data TEXT,
+        hora TEXT,
+        quantidade INTEGER,
+        status TEXT
+    )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -38,7 +52,6 @@ init_db()
 # ENVIAR MENSAGEM
 # =========================
 def enviar(numero, texto):
-
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
 
     headers = {
@@ -55,7 +68,7 @@ def enviar(numero, texto):
 
     r = requests.post(url, headers=headers, json=payload)
 
-    print("STATUS ENVIO:", r.status_code)
+    print("STATUS:", r.status_code)
     print("RESPOSTA:", r.text)
 
 # =========================
@@ -91,7 +104,7 @@ def webhook():
                 print(numero, texto)
 
                 # =========================
-                # CADASTRO (PRIORIDADE)
+                # CADASTRO ATLETA
                 # =========================
                 if numero in usuarios:
 
@@ -117,16 +130,13 @@ def webhook():
                             "3": "Árbitro"
                         }
 
-                        print("TIPO RECEBIDO:", texto)
-
                         if texto not in tipos:
-                            enviar(numero, "❌ Opção inválida.\nDigite:\n1 Goleiro\n2 Linha\n3 Árbitro")
+                            enviar(numero, "❌ Opção inválida.\n1 Goleiro\n2 Linha\n3 Árbitro")
                             return "ok"
 
                         usuarios[numero]["tipo"] = tipos[texto]
                         dados = usuarios[numero]
 
-                        # SALVAR NO BANCO
                         conn = sqlite3.connect("lendarios.db")
                         cursor = conn.cursor()
 
@@ -149,41 +159,112 @@ Tipo: {dados['tipo']}
                         return "ok"
 
                 # =========================
+                # SOLICITAÇÃO DE JOGADOR
+                # =========================
+                if numero in solicitacoes:
+
+                    etapa = solicitacoes[numero]["etapa"]
+
+                    if etapa == "cidade":
+                        solicitacoes[numero]["cidade"] = texto
+                        solicitacoes[numero]["etapa"] = "tipo"
+                        enviar(numero, "⚽ Tipo:\n1 Goleiro\n2 Linha\n3 Árbitro")
+                        return "ok"
+
+                    elif etapa == "tipo":
+                        tipos = {"1": "Goleiro", "2": "Linha", "3": "Árbitro"}
+
+                        if texto not in tipos:
+                            enviar(numero, "❌ Opção inválida.\n1 Goleiro\n2 Linha\n3 Árbitro")
+                            return "ok"
+
+                        solicitacoes[numero]["tipo"] = tipos[texto]
+                        solicitacoes[numero]["etapa"] = "data"
+                        enviar(numero, "📅 Digite a data (DD/MM/AA)")
+                        return "ok"
+
+                    elif etapa == "data":
+                        solicitacoes[numero]["data"] = texto
+                        solicitacoes[numero]["etapa"] = "hora"
+                        enviar(numero, "⏰ Digite a hora (HH:MM)")
+                        return "ok"
+
+                    elif etapa == "hora":
+                        solicitacoes[numero]["hora"] = texto
+                        solicitacoes[numero]["etapa"] = "quantidade"
+                        enviar(numero, "👥 Quantos atletas?")
+                        return "ok"
+
+                    elif etapa == "quantidade":
+                        solicitacoes[numero]["quantidade"] = texto
+
+                        dados = solicitacoes[numero]
+
+                        conn = sqlite3.connect("lendarios.db")
+                        cursor = conn.cursor()
+
+                        cursor.execute("""
+                        INSERT INTO solicitacoes (numero, cidade, tipo, data, hora, quantidade, status)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            numero,
+                            dados["cidade"],
+                            dados["tipo"],
+                            dados["data"],
+                            dados["hora"],
+                            dados["quantidade"],
+                            "aberto"
+                        ))
+
+                        conn.commit()
+                        conn.close()
+
+                        enviar(numero, f"""✅ Solicitação criada!
+
+Cidade: {dados['cidade']}
+Tipo: {dados['tipo']}
+Data: {dados['data']}
+Hora: {dados['hora']}
+Qtd: {dados['quantidade']}
+""")
+
+                        del solicitacoes[numero]
+                        return "ok"
+
+                # =========================
                 # MENU PRINCIPAL
                 # =========================
                 if texto == "1":
                     usuarios[numero] = {"etapa": "nome"}
-                    enviar(numero, "⚽ *Cadastro de Atleta*\n\nDigite seu nome:")
+                    enviar(numero, "⚽ Cadastro de atleta\n\nDigite seu nome:")
                     return "ok"
 
                 elif texto == "2":
-                    enviar(numero, "📅 Solicitação de jogador em breve!")
+                    solicitacoes[numero] = {"etapa": "cidade"}
+                    enviar(numero, "📍 Qual a cidade do jogo?")
                     return "ok"
 
                 elif texto == "3":
-                    enviar(numero, "📋 Lista de jogos em breve!")
+                    enviar(numero, "📋 Em breve lista de jogos")
                     return "ok"
 
                 elif texto == "4":
-                    enviar(numero, "👑 Fale com o administrador.")
+                    enviar(numero, "👑 Fale com o administrador")
                     return "ok"
 
                 elif texto == "0":
-                    enviar(numero, "👋 Você saiu.")
+                    enviar(numero, "👋 Você saiu")
                     return "ok"
 
                 else:
-                    menu = """🏆 *LENDÁRIOS*
-
-Escolha uma opção:
+                    enviar(numero, """🏆 LENDÁRIOS
 
 1️⃣ Sou atleta
 2️⃣ Solicitar jogador
 3️⃣ Ver jogos
 4️⃣ Falar com administrador
 0️⃣ Sair
-"""
-                    enviar(numero, menu)
+""")
                     return "ok"
 
         except Exception as e:
@@ -191,15 +272,9 @@ Escolha uma opção:
 
         return "ok", 200
 
-# =========================
-# HOME
-# =========================
 @app.route("/")
 def home():
     return "BOT LENDARIOS ONLINE"
 
-# =========================
-# RUN
-# =========================
 if __name__ == "__main__":
     app.run(port=5000)
