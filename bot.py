@@ -36,68 +36,54 @@ def webhook():
     if request.method == "GET":
         token = request.args.get("hub.verify_token")
         challenge = request.args.get("hub.challenge")
+if request.method == "POST":
 
-        if token == VERIFY_TOKEN:
-            return challenge
-        return "erro"
+    data = request.get_json()
 
-    if request.method == "POST":
+    try:
+        numero = data["entry"][0]["changes"][0]["value"]["messages"][0]["from"]
+        mensagem = data["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
 
-        data = request.get_json()
-        print("EVENTO:", data)
+        if numero.startswith("5548") and len(numero) == 12:
+            numero = "55489" + numero[4:]
 
-        try:
-            numero = data["entry"][0]["changes"][0]["value"]["messages"][0]["from"]
-            mensagem = data["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
+        mensagem = mensagem.lower().strip()
 
-            # Corrigir número (caso venha sem o 9)
-            if numero.startswith("5548") and len(numero) == 12:
-                numero = "55489" + numero[4:]
+        print(numero, mensagem)
 
-            mensagem = mensagem.strip().lower()
+        # 🔥 1º PRIORIDADE: CADASTRO
+        if numero in usuarios:
 
-            print("NUMERO:", numero)
-            print("MSG:", mensagem)
+            etapa = usuarios[numero]["etapa"]
 
-            # MENU PRINCIPAL
-            if mensagem in ["oi", "menu", "ola", "olá"]:
-                resposta = """🏆 *LENDÁRIOS*
+            if etapa == "nome":
+                usuarios[numero]["nome"] = mensagem
+                usuarios[numero]["etapa"] = "cidade"
+                enviar(numero, "📍 Qual sua cidade?")
+                return "ok"
 
-Escolha uma opção:
+            elif etapa == "cidade":
+                usuarios[numero]["cidade"] = mensagem
+                usuarios[numero]["etapa"] = "tipo"
+                enviar(numero, "⚽ Tipo:\n1 Goleiro\n2 Linha\n3 Árbitro")
+                return "ok"
 
-1️⃣ Sou atleta
-2️⃣ Solicitar jogador
-3️⃣ Ver jogos
-4️⃣ Falar com administrador
-0️⃣ Sair
-"""
+            elif etapa == "tipo":
+                tipos = {"1": "Goleiro", "2": "Linha", "3": "Árbitro"}
 
-            elif mensagem == "1":
-                resposta = """⚽ *Cadastro de Atleta*
+                usuarios[numero]["tipo"] = tipos.get(mensagem, "Não definido")
 
-Digite seu nome para começar:"""
+                dados = usuarios[numero]
 
-            elif mensagem == "2":
-                resposta = "📅 Em breve você poderá solicitar jogadores!"
+                enviar(numero, f"""✅ Cadastro concluído!
 
-            elif mensagem == "3":
-                resposta = "📋 Lista de jogos em breve!"
+Nome: {dados['nome']}
+Cidade: {dados['cidade']}
+Tipo: {dados['tipo']}
+""")
 
-            elif mensagem == "4":
-                resposta = "👑 Entre em contato com o administrador."
-
-            elif mensagem == "0":
-                resposta = "👋 Você saiu do menu."
-
-            else:
-                resposta = "❌ Opção inválida.\nDigite *menu* para voltar."
-
-            enviar(numero, resposta)
-
-        except Exception as e:
-            print("ERRO:", e)
-
-        return "ok"
+                del usuarios[numero]
+                return "ok"
 
 
 # ROTA PRINCIPAL
