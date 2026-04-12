@@ -74,16 +74,16 @@ def webhook():
                     enviar(numero, "⚽ *Cadastro de Atleta*\n\nDigite seu nome para começar:")
 
                 elif mensagem == "2":
-                resposta = "📅 Solicitação de jogador em breve!"
+                    resposta = "📅 Solicitação de jogador em breve!"
 
                 elif mensagem == "3":
-                resposta = "📋 Lista de jogos em breve!"
+                    resposta = "📋 Lista de jogos em breve!"
 
                 elif mensagem == "4":
-                resposta = "👑 Fale com o administrador."
+                    resposta = "👑 Fale com o administrador."
 
                 elif mensagem == "0":
-                resposta = "👋 Você saiu do menu."
+                    resposta = "👋 Você saiu do menu."
 
                 
                 else:
