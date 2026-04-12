@@ -72,9 +72,6 @@ def webhook():
                     usuarios[numero] = {"etapa": "nome"}
                     # Texto idêntico à Foto 2
                     enviar(numero, "⚽ *Cadastro de Atleta*\n\nDigite seu nome para começar:")
-                
-                elif mensagem == "1":
-                resposta = "⚽ Cadastro de atleta em breve!"
 
                 elif mensagem == "2":
                 resposta = "📅 Solicitação de jogador em breve!"
