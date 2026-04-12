@@ -3,34 +3,33 @@ import requests
 
 app = Flask(__name__)
 
+# CONFIGURAÇÕES
 VERIFY_TOKEN = "lendarios_token"
+TOKEN = "SEU_ACCESS_TOKEN_AQUI"
+PHONE_NUMBER_ID = "SEU_PHONE_NUMBER_ID_AQUI"
 
-TOKEN = "EAAsCShhhFUoBRO66HuKZCcs6gfPlPDDtSD3vZBuHRScteFn3RnuMzzqNh2P2Ow4bIU5QSvYGNNeiZCapCxQZB56sZBbxEPwaUzj89QVE16yWhbjBQIw0fRAI7iTjwoLZAklZBii6n3fmPYzCQ5X2wEeZBDDoYNmamJyVxsLrLjHZCBJoQKW6ruSn3W76gFiuTosH5gc9KTl5lSZCfrIn6POecy2FmeGry9Enn4JHBpdPNq9tCLNI689g7eESj441RZC6cU9ZBVQPieTkrrBattkUVdyWFPyggAZDZD"
-PHONE_NUMBER_ID = "1094450353745202"
-
-
+# FUNÇÃO PARA ENVIAR MENSAGEM
 def enviar(numero, texto):
 
-    url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
+    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
 
     headers = {
         "Authorization": f"Bearer {TOKEN}",
         "Content-Type": "application/json"
     }
 
-    payload = {
+    data = {
         "messaging_product": "whatsapp",
         "to": numero,
         "type": "text",
         "text": {"body": texto}
     }
 
-    r = requests.post(url, headers=headers, json=payload)
-
-    print("ENVIO:", r.status_code)
-    print("RESPOSTA:", r.text)
+    r = requests.post(url, headers=headers, json=data)
+    print("ENVIO:", r.status_code, r.text)
 
 
+# WEBHOOK
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
 
@@ -45,20 +44,26 @@ def webhook():
     if request.method == "POST":
 
         data = request.get_json()
+        print("EVENTO:", data)
 
         try:
             numero = data["entry"][0]["changes"][0]["value"]["messages"][0]["from"]
             mensagem = data["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
 
-            # Corrigir número (caso venha sem 9)
+            # Corrigir número (caso venha sem o 9)
             if numero.startswith("5548") and len(numero) == 12:
                 numero = "55489" + numero[4:]
 
-            print(numero, mensagem)
+            mensagem = mensagem.strip().lower()
 
-            # MENU
-            if mensagem.lower() in ["oi", "menu", "ola", "olá"]:
-                resposta = """🏆 LENDÁRIOS
+            print("NUMERO:", numero)
+            print("MSG:", mensagem)
+
+            # MENU PRINCIPAL
+            if mensagem in ["oi", "menu", "ola", "olá"]:
+                resposta = """🏆 *LENDÁRIOS*
+
+Escolha uma opção:
 
 1️⃣ Sou atleta
 2️⃣ Solicitar jogador
@@ -68,22 +73,24 @@ def webhook():
 """
 
             elif mensagem == "1":
-                resposta = "⚽ Cadastro de atleta em breve!"
+                resposta = """⚽ *Cadastro de Atleta*
+
+Digite seu nome para começar:"""
 
             elif mensagem == "2":
-                resposta = "📅 Solicitação de jogador em breve!"
+                resposta = "📅 Em breve você poderá solicitar jogadores!"
 
             elif mensagem == "3":
                 resposta = "📋 Lista de jogos em breve!"
 
             elif mensagem == "4":
-                resposta = "👑 Fale com o administrador."
+                resposta = "👑 Entre em contato com o administrador."
 
             elif mensagem == "0":
                 resposta = "👋 Você saiu do menu."
 
             else:
-                resposta = "❌ Opção inválida. Digite *menu* para voltar."
+                resposta = "❌ Opção inválida.\nDigite *menu* para voltar."
 
             enviar(numero, resposta)
 
@@ -93,6 +100,7 @@ def webhook():
         return "ok"
 
 
+# ROTA PRINCIPAL
 @app.route("/")
 def home():
     return "BOT LENDÁRIOS ONLINE"
