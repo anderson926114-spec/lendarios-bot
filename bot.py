@@ -9,7 +9,7 @@ TOKEN = "EAAsCShhhFUoBRO66HuKZCcs6gfPlPDDtSD3vZBuHRScteFn3RnuMzzqNh2P2Ow4bIU5QSv
 PHONE_NUMBER_ID = "1094450353745202"
 
 
-def enviar_mensagem(numero, texto):
+def enviar(numero, texto):
 
     url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
 
@@ -25,10 +25,10 @@ def enviar_mensagem(numero, texto):
         "text": {"body": texto}
     }
 
-    resposta = requests.post(url, headers=headers, json=payload)
+    r = requests.post(url, headers=headers, json=payload)
 
-    print("STATUS:", resposta.status_code)
-    print("RESPOSTA:", resposta.text)
+    print("ENVIO:", r.status_code)
+    print("RESPOSTA:", r.text)
 
 
 @app.route("/webhook", methods=["GET", "POST"])
