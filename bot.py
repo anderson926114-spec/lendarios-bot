@@ -8,14 +8,26 @@ app = Flask(__name__)
 # CONFIGURAÇÕES
 # =========================
 VERIFY_TOKEN = "lendarios_token"
-TOKEN = "EAAsCShhhFUoBRISmZCf37gdC2gfiMOb9aWTCCEnkwcCofT79wFvj8hZAdZCOLXTOate715vcocRqo3L3GevMZCp1mdt0tNWLxuDyfBU1ywbPCIMZCZBL6QARaZBd8kS4WSbUkkILrFde5zEuZBMSPuI3bYWvRztvSFZA1INAiPev9WWzus8tPrKZAqVvZAJkxGKsgWfTh86mu4PjWIs5dXbrUN04WqXg6zFfzArQPd9qZALUQGChz7KMPvt3KtlbbZBpxiuCLyRYBJWWnfkJvbAWQ8dKa7hZBm"
+TOKEN = "EAAsCShhhFUoBRJDVSHkFlGzpSn2XYyzfVxGfPxrG80Wx9eYXkZC96o34JoZBAqZBni6W4IMa0re7n8Nd8XXqr9bnRE4uWeqAVgCsoGSlPbDQGZB6Ta8iVMyZAmoOITNrFcE09zVtUVrpuIO983542AkGIMcuWEvJgZCL4UVmVrfyqAzqZCwc9aBbPEYwC27uGZCxyd0vkAjCK9ZAjirY0r0ZAEtv00uVUpkszYZAHk1ZB0STq36nXc9qSM03oHyTIoQsJ4ubBCMdABHMNRqW7g7NSKB8yx2e"
 PHONE_NUMBER_ID = "1094450353745202"
 
 # =========================
-# CONTROLE DE FLUXO
+# CONTROLE
 # =========================
 usuarios = {}
 solicitacoes = {}
+
+# =========================
+# NORMALIZAR NÚMERO (RESOLVE 9 DO BRASIL)
+# =========================
+def normalizar_numero(numero):
+    numero = "".join(filter(str.isdigit, numero))
+
+    # Brasil
+    if numero.startswith("55") and len(numero) == 12:
+        numero = numero[:4] + "9" + numero[4:]
+
+    return numero
 
 # =========================
 # BANCO DE DADOS
@@ -56,6 +68,8 @@ init_db()
 # ENVIAR MENSAGEM
 # =========================
 def enviar(numero, texto):
+    numero = normalizar_numero(numero)
+
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
 
     headers = {
@@ -97,10 +111,11 @@ def webhook():
 
         try:
             msg = data["entry"][0]["changes"][0]["value"]["messages"][0]
-            numero = msg["from"]
+
+            numero = normalizar_numero(msg["from"])
             texto = msg["text"]["body"].strip().lower()
 
-            print(numero, texto)
+            print("DEBUG:", numero, texto)
 
             # =========================
             # CADASTRO ATLETA
@@ -133,7 +148,7 @@ def webhook():
                 # -------------------------
                 if etapa == "cidade":
 
-                    opcoes = {
+                    cidades = {
                         "1": "São José",
                         "2": "Palhoça",
                         "3": "Biguaçu",
@@ -141,9 +156,9 @@ def webhook():
                         "5": "Florianópolis/Ilha"
                     }
 
-                    if texto in opcoes:
+                    if texto in cidades:
 
-                        cidade = opcoes[texto]
+                        cidade = cidades[texto]
 
                         if cidade not in usuarios[numero]["cidades"]:
                             usuarios[numero]["cidades"].append(cidade)
@@ -162,7 +177,7 @@ Deseja adicionar mais cidades? (S/N)
 
                         escolhidas = usuarios[numero]["cidades"]
 
-                        opcoes = {
+                        cidades = {
                             "1": "São José",
                             "2": "Palhoça",
                             "3": "Biguaçu",
@@ -171,10 +186,10 @@ Deseja adicionar mais cidades? (S/N)
                         }
 
                         lista = ""
-                        novo_map = {}
                         i = 1
+                        novo_map = {}
 
-                        for k, v in opcoes.items():
+                        for k, v in cidades.items():
                             if v not in escolhidas:
                                 novo_map[str(i)] = v
                                 lista += f"{i} {v}\n"
@@ -202,15 +217,15 @@ Deseja adicionar mais cidades? (S/N)
                 # -------------------------
                 if etapa == "tipo":
 
-                    opcoes = {
+                    tipos = {
                         "1": "Goleiro",
                         "2": "Linha",
                         "3": "Árbitro"
                     }
 
-                    if texto in opcoes:
+                    if texto in tipos:
 
-                        tipo = opcoes[texto]
+                        tipo = tipos[texto]
 
                         if tipo not in usuarios[numero]["tipos"]:
                             usuarios[numero]["tipos"].append(tipo)
@@ -229,17 +244,17 @@ Deseja adicionar mais tipos? (S/N)
 
                         escolhidos = usuarios[numero]["tipos"]
 
-                        opcoes = {
+                        tipos = {
                             "1": "Goleiro",
                             "2": "Linha",
                             "3": "Árbitro"
                         }
 
                         lista = ""
-                        novo_map = {}
                         i = 1
+                        novo_map = {}
 
-                        for k, v in opcoes.items():
+                        for k, v in tipos.items():
                             if v not in escolhidos:
                                 novo_map[str(i)] = v
                                 lista += f"{i} {v}\n"
@@ -282,7 +297,7 @@ Tipos: {', '.join(dados['tipos'])}
                         return "ok"
 
             # =========================
-            # MENU PRINCIPAL
+            # MENU
             # =========================
             if texto == "1":
                 usuarios[numero] = {"etapa": "nome"}
@@ -290,25 +305,19 @@ Tipos: {', '.join(dados['tipos'])}
                 return "ok"
 
             elif texto == "2":
-                solicitacoes[numero] = {"etapa": "cidade"}
-                enviar(numero, "📍 Qual a cidade do jogo?")
+                enviar(numero, "📍 Solicitação em breve")
                 return "ok"
 
             elif texto == "3":
-                enviar(numero, "📋 Em breve lista de jogos")
-                return "ok"
-
-            elif texto == "4":
-                enviar(numero, "👑 Fale com o administrador")
+                enviar(numero, "📋 Em breve jogos")
                 return "ok"
 
             else:
                 enviar(numero, """🏆 LENDÁRIOS
 
-1️⃣ Cadastro de atleta
-2️⃣ Solicitar atleta
-3️⃣ Ver jogos
-4️⃣ Falar com administrador
+1 Cadastro de atleta
+2 Solicitar atleta
+3 Ver jogos
 """)
                 return "ok"
 
@@ -329,4 +338,3 @@ def home():
 # =========================
 if __name__ == "__main__":
     app.run(port=5000)
-
