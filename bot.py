@@ -21,6 +21,7 @@ def enviar(numero, texto):
         "text": {"body": texto}
     }
     r = requests.post(url, headers=headers, json=data)
+    print(f"Status Envio: {r.status_code}") # Para debug
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
@@ -37,13 +38,13 @@ def webhook():
             if "messages" in data["entry"][0]["changes"][0]["value"]:
                 msg_data = data["entry"][0]["changes"][0]["value"]["messages"][0]
                 numero = msg_data["from"]
+                # Usei 'texto' como variável padrão
                 texto = msg_data["text"]["body"].strip()
                 
-                # Normalização de número (SC)
                 if numero.startswith("5548") and len(numero) == 12:
                     numero = "55489" + numero[4:]
 
-                # --- FLUXO DE CADASTRO ATIVO ---
+                # --- 1º PRIORIDADE: FLUXO DE CADASTRO ATIVO ---
                 if numero in usuarios:
                     etapa = usuarios[numero]["etapa"]
 
@@ -67,27 +68,25 @@ def webhook():
                         del usuarios[numero]
                         return "ok"
 
-                # --- MENU PRINCIPAL (FOTO 1) ---
+                # --- 2º PRIORIDADE: MENU PRINCIPAL ---
+                # Corrigido: Agora todas as verificações usam a variável 'texto'
                 if texto == "1":
                     usuarios[numero] = {"etapa": "nome"}
-                    # Texto idêntico à Foto 2
                     enviar(numero, "⚽ *Cadastro de Atleta*\n\nDigite seu nome para começar:")
 
-                elif mensagem == "2":
-                    resposta = "📅 Solicitação de jogador em breve!"
+                elif texto == "2":
+                    enviar(numero, "📅 Solicitação de jogador em breve!")
 
-                elif mensagem == "3":
-                    resposta = "📋 Lista de jogos em breve!"
+                elif texto == "3":
+                    enviar(numero, "📋 Lista de jogos em breve!")
 
-                elif mensagem == "4":
-                    resposta = "👑 Fale com o administrador."
+                elif texto == "4":
+                    enviar(numero, "👑 Fale com o administrador.")
 
-                elif mensagem == "0":
-                    resposta = "👋 Você saiu do menu."
-
+                elif texto == "0":
+                    enviar(numero, "👋 Você saiu do menu.")
                 
                 else:
-                    # Texto idêntico à Foto 1
                     menu = (
                         "🏆 *LENDÁRIOS*\n\n"
                         "Escolha uma opção:\n\n"
@@ -100,7 +99,8 @@ def webhook():
                     enviar(numero, menu)
 
         except Exception as e:
-            print(f"Erro: {e}")
+            print(f"Erro no processamento: {e}")
+            
         return "ok", 200
 
 @app.route("/")
