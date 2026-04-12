@@ -39,7 +39,7 @@ def webhook():
                 msg_data = data["entry"][0]["changes"][0]["value"]["messages"][0]
                 numero = msg_data["from"]
                 # Usei 'texto' como variável padrão
-                texto = msg_data["text"]["body"].strip()
+                texto = msg_data["text"]["body"].strip().lower()
                 
                 if numero.startswith("5548") and len(numero) == 12:
                     numero = "55489" + numero[4:]
@@ -61,12 +61,42 @@ def webhook():
                         return "ok"
 
                     elif etapa == "tipo":
-                        tipos = {"1": "Goleiro", "2": "Linha", "3": "Árbitro"}
-                        usuarios[numero]["tipo"] = tipos.get(texto, "Não definido")
+                        tipos = {
+                            "1": "Goleiro",
+                            "2": "Linha",
+                            "3": "Árbitro"
+                        }
+
+                        print("Recebido tipo:", texto)  # DEBUG
+
+                        if texto not in tipos:
+                            enviar(numero, "❌ Opção inválida.\nDigite:\n1 Goleiro\n2 Linha\n3 Árbitro")
+                            return "ok"
+
+                        usuarios[numero]["tipo"] = tipos[texto]
                         dados = usuarios[numero]
-                        enviar(numero, f"✅ Cadastro concluído!\n\nNome: {dados['nome']}\nCidade: {dados['cidade']}\nTipo: {tipo_escolhido}")
-                        del usuarios[numero]
-                        return "ok"
+
+                        # SALVAR NO BANCO
+                        conn = sqlite3.connect("lendarios.db")
+                        cursor = conn.cursor()
+
+                        cursor.execute("""
+                        INSERT INTO atletas (numero, nome, cidade, tipo)
+                        VALUES (?, ?, ?, ?)
+                        """, (numero, dados["nome"], dados["cidade"], dados["tipo"]))
+
+                        conn.commit()
+                        conn.close()
+
+                        enviar(numero, f"""✅ Cadastro concluído!
+
+                  Nome: {dados['nome']}
+                  Cidade: {dados['cidade']}
+                  Tipo: {dados['tipo']}
+                  """)
+
+                       del usuarios[numero]
+                       return "ok"
 
                 # --- 2º PRIORIDADE: MENU PRINCIPAL ---
                 # Corrigido: Agora todas as verificações usam a variável 'texto'
