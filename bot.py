@@ -28,13 +28,26 @@ def init_db():
     )
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS solicitacoes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        numero TEXT,
+        cidade TEXT,
+        tipo TEXT,
+        data TEXT,
+        hora TEXT,
+        quantidade INTEGER,
+        status TEXT
+    )
+    """)
+
     conn.commit()
     conn.close()
 
 init_db()
 
 # =========================
-# NORMALIZAR NÚMERO
+# NORMALIZAR
 # =========================
 def normalizar_numero(numero):
     numero = "".join(filter(str.isdigit, numero))
@@ -43,7 +56,7 @@ def normalizar_numero(numero):
     return numero
 
 # =========================
-# DADOS FIXOS
+# DADOS
 # =========================
 CIDADES = {
     "1": "São José",
@@ -80,7 +93,6 @@ def enviar(numero, texto):
     }
 
     r = requests.post(url, headers=headers, json=payload)
-
     print("ENVIO:", r.status_code, r.text)
 
 # =========================
@@ -117,7 +129,6 @@ def webhook():
 
         msg = value["messages"][0]
 
-        # ignora se não for texto
         if msg["type"] != "text":
             return "ok"
 
@@ -127,7 +138,7 @@ def webhook():
         print("DEBUG:", numero, texto)
 
         # =========================
-        # MENU INICIAL
+        # INICIO
         # =========================
         if numero not in usuarios and numero not in solicitacoes:
 
@@ -146,7 +157,7 @@ def webhook():
             return "ok"
 
         # =========================
-        # CADASTRO
+        # CADASTRO (mantido igual)
         # =========================
         if numero in usuarios:
 
@@ -155,59 +166,25 @@ def webhook():
             if u["etapa"] == "nome":
                 u["nome"] = texto
                 u["etapa"] = "cidade"
-
-                lista = "\n".join([f"{k} {v}" for k,v in CIDADES.items()])
-                enviar(numero, "📍 Cidade:\n\n" + lista)
+                enviar(numero, "📍 Escolha cidade:\n" + "\n".join([f"{k} {v}" for k,v in CIDADES.items()]))
                 return "ok"
 
             if u["etapa"] == "cidade":
                 if texto not in CIDADES:
-                    enviar(numero, "❌ Escolha válida:\n" + "\n".join([f"{k} {v}" for k,v in CIDADES.items()]))
+                    enviar(numero, "❌ Escolha válida")
                     return "ok"
 
-                cidade = CIDADES[texto]
-
-                if cidade not in u["cidades"]:
-                    u["cidades"].append(cidade)
-
-                u["etapa"] = "cidade_mais"
-                enviar(numero, "Mais cidades? (S/N)")
-                return "ok"
-
-            if u["etapa"] == "cidade_mais":
-
-                if texto == "s":
-                    lista = "\n".join([f"{k} {v}" for k,v in CIDADES.items() if v not in u["cidades"]])
-                    u["etapa"] = "cidade"
-                    enviar(numero, "Outra cidade:\n\n" + lista)
-                    return "ok"
-
+                u["cidades"].append(CIDADES[texto])
                 u["etapa"] = "tipo"
                 enviar(numero, "⚽ Tipo:\n1 Goleiro\n2 Linha\n3 Árbitro")
                 return "ok"
 
             if u["etapa"] == "tipo":
-
                 if texto not in TIPOS:
-                    enviar(numero, "❌ Escolha válida:\n1 Goleiro\n2 Linha\n3 Árbitro")
+                    enviar(numero, "❌ Escolha válida")
                     return "ok"
 
-                tipo = TIPOS[texto]
-
-                if tipo not in u["tipos"]:
-                    u["tipos"].append(tipo)
-
-                u["etapa"] = "tipo_mais"
-                enviar(numero, "Mais tipos? (S/N)")
-                return "ok"
-
-            if u["etapa"] == "tipo_mais":
-
-                if texto == "s":
-                    lista = "\n".join([f"{k} {v}" for k,v in TIPOS.items() if v not in u["tipos"]])
-                    u["etapa"] = "tipo"
-                    enviar(numero, "Outro tipo:\n\n" + lista)
-                    return "ok"
+                u["tipos"].append(TIPOS[texto])
 
                 conn = sqlite3.connect("lendarios.db")
                 cursor = conn.cursor()
@@ -215,12 +192,7 @@ def webhook():
                 cursor.execute("""
                 INSERT INTO atletas (numero,nome,cidades,tipos)
                 VALUES (?,?,?,?)
-                """, (
-                    numero,
-                    u["nome"],
-                    ",".join(u["cidades"]),
-                    ",".join(u["tipos"])
-                ))
+                """, (numero, u["nome"], ",".join(u["cidades"]), ",".join(u["tipos"])))
 
                 conn.commit()
                 conn.close()
@@ -230,21 +202,74 @@ def webhook():
                 return "ok"
 
         # =========================
-        # SOLICITAÇÃO
+        # SOLICITAÇÃO COMPLETA
         # =========================
         if numero in solicitacoes:
 
             s = solicitacoes[numero]
 
             if s["etapa"] == "cidade":
-
                 if texto not in CIDADES:
-                    enviar(numero, "❌ Escolha válida:\n" + "\n".join([f"{k} {v}" for k,v in CIDADES.items()]))
+                    enviar(numero, "❌ Escolha válida")
                     return "ok"
 
                 s["cidade"] = CIDADES[texto]
+                s["etapa"] = "tipo"
+                enviar(numero, "⚽ Tipo:\n1 Goleiro\n2 Linha\n3 Árbitro")
+                return "ok"
 
-                enviar(numero, f"⚽ Solicitação criada para {s['cidade']}")
+            if s["etapa"] == "tipo":
+                if texto not in TIPOS:
+                    enviar(numero, "❌ Escolha válida")
+                    return "ok"
+
+                s["tipo"] = TIPOS[texto]
+                s["etapa"] = "data"
+                enviar(numero, "📅 Digite a data (DD/MM)")
+                return "ok"
+
+            if s["etapa"] == "data":
+                s["data"] = texto
+                s["etapa"] = "hora"
+                enviar(numero, "⏰ Digite a hora (HH:MM)")
+                return "ok"
+
+            if s["etapa"] == "hora":
+                s["hora"] = texto
+                s["etapa"] = "qtd"
+                enviar(numero, "👥 Quantos atletas?")
+                return "ok"
+
+            if s["etapa"] == "qtd":
+
+                try:
+                    qtd = int(texto)
+                except:
+                    enviar(numero, "❌ Digite um número válido")
+                    return "ok"
+
+                s["qtd"] = qtd
+
+                conn = sqlite3.connect("lendarios.db")
+                cursor = conn.cursor()
+
+                cursor.execute("""
+                INSERT INTO solicitacoes (numero,cidade,tipo,data,hora,quantidade,status)
+                VALUES (?,?,?,?,?,?,?)
+                """, (numero, s["cidade"], s["tipo"], s["data"], s["hora"], qtd, "aberto"))
+
+                conn.commit()
+                conn.close()
+
+                enviar(numero, f"""✅ Solicitação criada!
+
+Cidade: {s['cidade']}
+Tipo: {s['tipo']}
+Data: {s['data']}
+Hora: {s['hora']}
+Qtd: {s['qtd']}
+""")
+
                 del solicitacoes[numero]
                 return "ok"
 
