@@ -12,6 +12,28 @@ usuarios = {}
 solicitacoes = {}
 
 # =========================
+# BANCO
+# =========================
+def init_db():
+    conn = sqlite3.connect("lendarios.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS atletas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        numero TEXT,
+        nome TEXT,
+        cidades TEXT,
+        tipos TEXT
+    )
+    """)
+
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# =========================
 # NORMALIZAR NÚMERO
 # =========================
 def normalizar_numero(numero):
@@ -57,10 +79,12 @@ def enviar(numero, texto):
         "text": {"body": texto}
     }
 
-    requests.post(url, headers=headers, json=payload)
+    r = requests.post(url, headers=headers, json=payload)
+
+    print("ENVIO:", r.status_code, r.text)
 
 # =========================
-# MENU GLOBAL (QUALQUER TEXTO)
+# MENU
 # =========================
 def menu(numero):
     enviar(numero, """🏆 LENDÁRIOS
@@ -86,7 +110,16 @@ def webhook():
     data = request.get_json()
 
     try:
-        msg = data["entry"][0]["changes"][0]["value"]["messages"][0]
+        value = data["entry"][0]["changes"][0]["value"]
+
+        if "messages" not in value:
+            return "ok"
+
+        msg = value["messages"][0]
+
+        # ignora se não for texto
+        if msg["type"] != "text":
+            return "ok"
 
         numero = normalizar_numero(msg["from"])
         texto = msg["text"]["body"].strip().lower()
@@ -94,7 +127,7 @@ def webhook():
         print("DEBUG:", numero, texto)
 
         # =========================
-        # MENU GLOBAL INTELIGENTE
+        # MENU INICIAL
         # =========================
         if numero not in usuarios and numero not in solicitacoes:
 
@@ -113,7 +146,7 @@ def webhook():
             return "ok"
 
         # =========================
-        # CADASTRO ATLETA
+        # CADASTRO
         # =========================
         if numero in usuarios:
 
@@ -127,7 +160,11 @@ def webhook():
                 enviar(numero, "📍 Cidade:\n\n" + lista)
                 return "ok"
 
-            if u["etapa"] == "cidade" and texto in CIDADES:
+            if u["etapa"] == "cidade":
+                if texto not in CIDADES:
+                    enviar(numero, "❌ Escolha válida:\n" + "\n".join([f"{k} {v}" for k,v in CIDADES.items()]))
+                    return "ok"
+
                 cidade = CIDADES[texto]
 
                 if cidade not in u["cidades"]:
@@ -146,10 +183,15 @@ def webhook():
                     return "ok"
 
                 u["etapa"] = "tipo"
-                enviar(numero, "⚽ Tipo (1/2/3)")
+                enviar(numero, "⚽ Tipo:\n1 Goleiro\n2 Linha\n3 Árbitro")
                 return "ok"
 
-            if u["etapa"] == "tipo" and texto in TIPOS:
+            if u["etapa"] == "tipo":
+
+                if texto not in TIPOS:
+                    enviar(numero, "❌ Escolha válida:\n1 Goleiro\n2 Linha\n3 Árbitro")
+                    return "ok"
+
                 tipo = TIPOS[texto]
 
                 if tipo not in u["tipos"]:
@@ -188,21 +230,24 @@ def webhook():
                 return "ok"
 
         # =========================
-        # SOLICITAÇÃO (ISOLADA)
+        # SOLICITAÇÃO
         # =========================
         if numero in solicitacoes:
 
             s = solicitacoes[numero]
 
-            if s["etapa"] == "cidade" and texto in CIDADES:
-                s["cidade"] = CIDADES[texto]
-                s["etapa"] = "final"
+            if s["etapa"] == "cidade":
 
-                enviar(numero, "⚽ Solicitação criada para: " + s["cidade"])
+                if texto not in CIDADES:
+                    enviar(numero, "❌ Escolha válida:\n" + "\n".join([f"{k} {v}" for k,v in CIDADES.items()]))
+                    return "ok"
+
+                s["cidade"] = CIDADES[texto]
+
+                enviar(numero, f"⚽ Solicitação criada para {s['cidade']}")
                 del solicitacoes[numero]
                 return "ok"
 
-        # fallback sempre volta menu
         menu(numero)
         return "ok"
 
