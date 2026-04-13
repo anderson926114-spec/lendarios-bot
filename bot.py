@@ -22,9 +22,11 @@ def init_db():
     CREATE TABLE IF NOT EXISTS atletas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         numero TEXT,
+        cpf TEXT,
         nome TEXT,
         cidades TEXT,
-        tipos TEXT
+        tipos TEXT,
+        pix TEXT
     )
     """)
 
@@ -32,11 +34,15 @@ def init_db():
     CREATE TABLE IF NOT EXISTS solicitacoes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         numero TEXT,
+        cpf TEXT,
+        endereco TEXT,
         cidade TEXT,
+        campo TEXT,
         tipo TEXT,
         data TEXT,
         hora TEXT,
         quantidade INTEGER,
+        valor TEXT,
         status TEXT
     )
     """)
@@ -92,8 +98,7 @@ def enviar(numero, texto):
         "text": {"body": texto}
     }
 
-    r = requests.post(url, headers=headers, json=payload)
-    print("ENVIO:", r.status_code, r.text)
+    requests.post(url, headers=headers, json=payload)
 
 # =========================
 # MENU
@@ -143,25 +148,30 @@ def webhook():
         if numero not in usuarios and numero not in solicitacoes:
 
             if texto == "1":
-                usuarios[numero] = {"etapa": "nome", "cidades": [], "tipos": []}
-                enviar(numero, "⚽ Digite seu nome:")
+                usuarios[numero] = {"etapa": "cpf", "cidades": [], "tipos": []}
+                enviar(numero, "🧾 Digite seu CPF:")
                 return "ok"
 
             if texto == "2":
-                solicitacoes[numero] = {"etapa": "cidade"}
-                lista = "\n".join([f"{k} {v}" for k,v in CIDADES.items()])
-                enviar(numero, "📍 Escolha cidade:\n\n" + lista)
+                solicitacoes[numero] = {"etapa": "cpf"}
+                enviar(numero, "🧾 Digite seu CPF:")
                 return "ok"
 
             menu(numero)
             return "ok"
 
         # =========================
-        # CADASTRO (mantido igual)
+        # CADASTRO ATLETA
         # =========================
         if numero in usuarios:
 
             u = usuarios[numero]
+
+            if u["etapa"] == "cpf":
+                u["cpf"] = texto
+                u["etapa"] = "nome"
+                enviar(numero, "⚽ Digite seu nome:")
+                return "ok"
 
             if u["etapa"] == "nome":
                 u["nome"] = texto
@@ -174,7 +184,21 @@ def webhook():
                     enviar(numero, "❌ Escolha válida")
                     return "ok"
 
-                u["cidades"].append(CIDADES[texto])
+                cidade = CIDADES[texto]
+                if cidade not in u["cidades"]:
+                    u["cidades"].append(cidade)
+
+                u["etapa"] = "cidade_mais"
+                enviar(numero, "Adicionar outra cidade? (S/N)")
+                return "ok"
+
+            if u["etapa"] == "cidade_mais":
+
+                if texto == "s":
+                    u["etapa"] = "cidade"
+                    enviar(numero, "Escolha outra cidade:\n" + "\n".join([f"{k} {v}" for k,v in CIDADES.items()]))
+                    return "ok"
+
                 u["etapa"] = "tipo"
                 enviar(numero, "⚽ Tipo:\n1 Goleiro\n2 Linha\n3 Árbitro")
                 return "ok"
@@ -184,15 +208,41 @@ def webhook():
                     enviar(numero, "❌ Escolha válida")
                     return "ok"
 
-                u["tipos"].append(TIPOS[texto])
+                tipo = TIPOS[texto]
+                if tipo not in u["tipos"]:
+                    u["tipos"].append(tipo)
+
+                u["etapa"] = "tipo_mais"
+                enviar(numero, "Adicionar outro tipo? (S/N)")
+                return "ok"
+
+            if u["etapa"] == "tipo_mais":
+
+                if texto == "s":
+                    u["etapa"] = "tipo"
+                    enviar(numero, "Escolha outro tipo:\n1 Goleiro\n2 Linha\n3 Árbitro")
+                    return "ok"
+
+                u["etapa"] = "pix"
+                enviar(numero, "💰 Digite sua chave PIX:")
+                return "ok"
+
+            if u["etapa"] == "pix":
 
                 conn = sqlite3.connect("lendarios.db")
                 cursor = conn.cursor()
 
                 cursor.execute("""
-                INSERT INTO atletas (numero,nome,cidades,tipos)
-                VALUES (?,?,?,?)
-                """, (numero, u["nome"], ",".join(u["cidades"]), ",".join(u["tipos"])))
+                INSERT INTO atletas (numero,cpf,nome,cidades,tipos,pix)
+                VALUES (?,?,?,?,?,?)
+                """, (
+                    numero,
+                    u["cpf"],
+                    u["nome"],
+                    ",".join(u["cidades"]),
+                    ",".join(u["tipos"]),
+                    texto
+                ))
 
                 conn.commit()
                 conn.close()
@@ -202,11 +252,23 @@ def webhook():
                 return "ok"
 
         # =========================
-        # SOLICITAÇÃO COMPLETA
+        # SOLICITAÇÃO
         # =========================
         if numero in solicitacoes:
 
             s = solicitacoes[numero]
+
+            if s["etapa"] == "cpf":
+                s["cpf"] = texto
+                s["etapa"] = "endereco"
+                enviar(numero, "📍 Digite o endereço do jogo:")
+                return "ok"
+
+            if s["etapa"] == "endereco":
+                s["endereco"] = texto
+                s["etapa"] = "cidade"
+                enviar(numero, "Escolha cidade:\n" + "\n".join([f"{k} {v}" for k,v in CIDADES.items()]))
+                return "ok"
 
             if s["etapa"] == "cidade":
                 if texto not in CIDADES:
@@ -214,6 +276,12 @@ def webhook():
                     return "ok"
 
                 s["cidade"] = CIDADES[texto]
+                s["etapa"] = "campo"
+                enviar(numero, "🏟 Nome do campo:")
+                return "ok"
+
+            if s["etapa"] == "campo":
+                s["campo"] = texto
                 s["etapa"] = "tipo"
                 enviar(numero, "⚽ Tipo:\n1 Goleiro\n2 Linha\n3 Árbitro")
                 return "ok"
@@ -225,13 +293,13 @@ def webhook():
 
                 s["tipo"] = TIPOS[texto]
                 s["etapa"] = "data"
-                enviar(numero, "📅 Digite a data (DD/MM)")
+                enviar(numero, "📅 Data (DD/MM)")
                 return "ok"
 
             if s["etapa"] == "data":
                 s["data"] = texto
                 s["etapa"] = "hora"
-                enviar(numero, "⏰ Digite a hora (HH:MM)")
+                enviar(numero, "⏰ Hora (HH:MM)")
                 return "ok"
 
             if s["etapa"] == "hora":
@@ -241,35 +309,38 @@ def webhook():
                 return "ok"
 
             if s["etapa"] == "qtd":
+                s["qtd"] = texto
+                s["etapa"] = "valor"
+                enviar(numero, "💰 Valor da solicitação:")
+                return "ok"
 
-                try:
-                    qtd = int(texto)
-                except:
-                    enviar(numero, "❌ Digite um número válido")
-                    return "ok"
-
-                s["qtd"] = qtd
+            if s["etapa"] == "valor":
 
                 conn = sqlite3.connect("lendarios.db")
                 cursor = conn.cursor()
 
                 cursor.execute("""
-                INSERT INTO solicitacoes (numero,cidade,tipo,data,hora,quantidade,status)
-                VALUES (?,?,?,?,?,?,?)
-                """, (numero, s["cidade"], s["tipo"], s["data"], s["hora"], qtd, "aberto"))
+                INSERT INTO solicitacoes 
+                (numero,cpf,endereco,cidade,campo,tipo,data,hora,quantidade,valor,status)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                """, (
+                    numero,
+                    s["cpf"],
+                    s["endereco"],
+                    s["cidade"],
+                    s["campo"],
+                    s["tipo"],
+                    s["data"],
+                    s["hora"],
+                    s["qtd"],
+                    texto,
+                    "aberto"
+                ))
 
                 conn.commit()
                 conn.close()
 
-                enviar(numero, f"""✅ Solicitação criada!
-
-Cidade: {s['cidade']}
-Tipo: {s['tipo']}
-Data: {s['data']}
-Hora: {s['hora']}
-Qtd: {s['qtd']}
-""")
-
+                enviar(numero, "✅ Solicitação criada com sucesso!")
                 del solicitacoes[numero]
                 return "ok"
 
