@@ -4,12 +4,11 @@ import sqlite3
 
 app = Flask(__name__)
 
-TOKEN = "EAAsCShhhFUoBREkjSy3PLHRSctJlnOW1T98MMlhzBXtKzuVhYr3qB9A3MH4Ixf2o5F7SjcxgZBvwDY6rD8aLz0YRS8MVyZBHr7ZBHx8UZCPijtvKrjpXZA5iXu9qS1JZAWgjCUK6qNUPpGHZAtc1gh5M2WrQbkFAYCqB0JjpZCdHZAwZCwGXinJ3zKoROZAcT7HYcw1hcpAD6B67v2oh3V3Uhe5FtZCEyZA8mayO7eif3Kzry1HVV2abNOax0szkZC8TyXDMEmANfydIx0TxaMAxsl2yl7KiFNhwZDZD"
-PHONE_NUMBER_ID = "1094450353745202"
+TOKEN = "SEU_TOKEN_AQUI"
+PHONE_NUMBER_ID = "EAAsCShhhFUoBREkjSy3PLHRSctJlnOW1T98MMlhzBXtKzuVhYr3qB9A3MH4Ixf2o5F7SjcxgZBvwDY6rD8aLz0YRS8MVyZBHr7ZBHx8UZCPijtvKrjpXZA5iXu9qS1JZAWgjCUK6qNUPpGHZAtc1gh5M2WrQbkFAYCqB0JjpZCdHZAwZCwGXinJ3zKoROZAcT7HYcw1hcpAD6B67v2oh3V3Uhe5FtZCEyZA8mayO7eif3Kzry1HVV2abNOax0szkZC8TyXDMEmANfydIx0TxaMAxsl2yl7KiFNhwZDZD"
 VERIFY_TOKEN = "lendarios_token"
 
 usuarios = {}
-solicitacoes = {}
 
 # =========================
 # FUNÇÕES
@@ -17,11 +16,22 @@ solicitacoes = {}
 def sn(texto):
     return texto.strip().lower()
 
-def normalizar_numero(numero):
+def normalizar(numero):
     numero = "".join(filter(str.isdigit, numero))
     if numero.startswith("55") and len(numero) == 12:
         numero = numero[:4] + "9" + numero[4:]
     return numero
+
+def enviar(numero, texto):
+    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": numero,
+        "type": "text",
+        "text": {"body": texto}
+    }
+    requests.post(url, headers=headers, json=payload)
 
 # =========================
 # BANCO
@@ -40,24 +50,6 @@ def init_db():
         tipos TEXT,
         campo TEXT,
         pix TEXT
-    )
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS solicitacoes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        numero TEXT,
-        cpf TEXT,
-        endereco TEXT,
-        cidade TEXT,
-        nome_campo TEXT,
-        tipo_campo TEXT,
-        tipo TEXT,
-        data TEXT,
-        hora TEXT,
-        quantidade INTEGER,
-        valor REAL,
-        status TEXT
     )
     """)
 
@@ -89,26 +81,6 @@ TIPO_CAMPO = {
     "3": "Futsal"
 }
 
-VALORES = {
-    "Goleiro": 40,
-    "Jogador Linha": 30,
-    "Árbitro": 50
-}
-
-# =========================
-# ENVIAR
-# =========================
-def enviar(numero, texto):
-    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-    headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": numero,
-        "type": "text",
-        "text": {"body": texto}
-    }
-    requests.post(url, headers=headers, json=payload)
-
 # =========================
 # MENU
 # =========================
@@ -116,9 +88,6 @@ def menu(numero):
     enviar(numero, """🏆 LENDÁRIOS
 
 1 🧤 Cadastro de atleta
-2 ⚽ Solicitar atleta
-3 ⭐ Avaliações
-4 👑 Admin
 5 🚪 Sair
 """)
 
@@ -142,24 +111,26 @@ def webhook():
             return "ok"
 
         msg = value["messages"][0]
+
         if msg["type"] != "text":
             return "ok"
 
-        numero = normalizar_numero(msg["from"])
+        numero = normalizar(msg["from"])
         texto = msg["text"]["body"].strip()
+
+        print("DEBUG:", numero, texto)
 
         # =========================
         # MENU INICIAL
         # =========================
-        if numero not in usuarios and numero not in solicitacoes:
+        if numero not in usuarios:
 
             if texto == "1":
-                usuarios[numero] = {"etapa": "cpf", "cidades": [], "tipos": []}
-                enviar(numero, "🧾 Digite seu CPF:")
-                return "ok"
-
-            if texto == "2":
-                solicitacoes[numero] = {"etapa": "cpf"}
+                usuarios[numero] = {
+                    "etapa": "cpf",
+                    "cidades": [],
+                    "tipos": []
+                }
                 enviar(numero, "🧾 Digite seu CPF:")
                 return "ok"
 
@@ -171,149 +142,166 @@ def webhook():
             return "ok"
 
         # =========================
-        # CADASTRO
+        # FLUXO CADASTRO
         # =========================
-        if numero in usuarios:
-            u = usuarios[numero]
+        u = usuarios[numero]
 
-            if u["etapa"] == "cpf":
-                conn = sqlite3.connect("lendarios.db")
-                cursor = conn.cursor()
-                cursor.execute("SELECT nome FROM atletas WHERE cpf=?", (texto,))
-                if cursor.fetchone():
-                    enviar(numero, "⚠ CPF já cadastrado!")
-                    conn.close()
-                    return "ok"
-                conn.close()
+        # CPF
+        if u["etapa"] == "cpf":
 
-                u["cpf"] = texto
-                u["etapa"] = "nome"
-                enviar(numero, "⚽ Nome:")
-                return "ok"
+            conn = sqlite3.connect("lendarios.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT nome FROM atletas WHERE cpf=?", (texto,))
+            existe = cursor.fetchone()
+            conn.close()
 
-            if u["etapa"] == "nome":
-                u["nome"] = texto
-                u["etapa"] = "cidade"
-
-            if u["etapa"] == "cidade":
-                op = {k:v for k,v in CIDADES.items() if v not in u["cidades"]}
-                enviar(numero, "📍 Cidade:\n" + "\n".join([f"{k} {v}" for k,v in op.items()]))
-                u["etapa"] = "cidade_escolha"
-                return "ok"
-
-            if u["etapa"] == "cidade_escolha":
-                cidade = CIDADES.get(texto)
-                if not cidade:
-                    enviar(numero, "❌ Opção inválida")
-                    return "ok"
-
-                u["cidades"].append(cidade)
-                enviar(numero, "Adicionar outra cidade? (S/N)")
-                u["etapa"] = "cidade_mais"
-                return "ok"
-
-            if u["etapa"] == "cidade_mais":
-                resposta = sn(texto)
-
-                if resposta not in ["s","n"]:
-                    enviar(numero, "❌ Digite S ou N")
-                    return "ok"
-
-                if resposta == "s":
-                    u["etapa"] = "cidade"
-                    op = {k:v for k,v in CIDADES.items() if v not in u["cidades"]}
-                    enviar(numero, "📍 Escolha outra cidade:\n" + "\n".join([f"{k} {v}" for k,v in op.items()]))
-                else:
-                    u["etapa"] = "tipo"
-                    op = {k:v for k,v in TIPOS.items() if v not in u["tipos"]}
-                    enviar(numero, "⚽ Tipo:\n" + "\n".join([f"{k} {v}" for k,v in op.items()]))
-
-                return "ok"
-
-            if u["etapa"] == "tipo":
-                op = {k:v for k,v in TIPOS.items() if v not in u["tipos"]}
-                enviar(numero, "⚽ Tipo:\n" + "\n".join([f"{k} {v}" for k,v in op.items()]))
-                u["etapa"] = "tipo_escolha"
-                return "ok"
-
-            if u["etapa"] == "tipo_escolha":
-                tipo = TIPOS.get(texto)
-                if not tipo:
-                    enviar(numero, "❌ Opção inválida")
-                    return "ok"
-
-                u["tipos"].append(tipo)
-                enviar(numero, "Adicionar outro tipo? (S/N)")
-                u["etapa"] = "tipo_mais"
-                return "ok"
-
-            if u["etapa"] == "tipo_mais":
-                resposta = sn(texto)
-
-                if resposta not in ["s","n"]:
-                    enviar(numero, "❌ Digite S ou N")
-                    return "ok"
-
-                if resposta == "s":
-                    u["etapa"] = "tipo"
-                    op = {k:v for k,v in TIPOS.items() if v not in u["tipos"]}
-                    enviar(numero, "⚽ Escolha outro tipo:\n" + "\n".join([f"{k} {v}" for k,v in op.items()]))
-                else:
-                    u["etapa"] = "campo"
-                    enviar(numero, "🏟 Tipo de campo:\n1 Campo Oficial\n2 Society\n3 Futsal")
-
-                return "ok"
-
-            if u["etapa"] == "campo":
-                enviar(numero, "🏟 Tipo de campo:\n1 Campo Oficial\n2 Society\n3 Futsal")
-                u["etapa"] = "campo_escolha"
-                return "ok"
-
-            if u["etapa"] == "campo_escolha":
-                campo = TIPO_CAMPO.get(texto)
-                if not campo:
-                    enviar(numero, "❌ Opção inválida")
-                    return "ok"
-
-                u["campo"] = campo
-                u["etapa"] = "pix"
-                enviar(numero, "💰 Chave PIX:")
-                return "ok"
-
-            if u["etapa"] == "pix":
-
-                conn = sqlite3.connect("lendarios.db")
-                cursor = conn.cursor()
-
-                cursor.execute("""
-                INSERT INTO atletas (numero,cpf,nome,cidades,tipos,campo,pix)
-                VALUES (?,?,?,?,?,?,?)
-                """, (
-                    numero,
-                    u["cpf"],
-                    u["nome"],
-                    ",".join(u["cidades"]),
-                    ",".join(u["tipos"]),
-                    u["campo"],
-                    texto
-                ))
-
-                conn.commit()
-                conn.close()
-
-                enviar(numero, "🏆 Cadastro realizado com sucesso!")
+            if existe:
+                enviar(numero, "⚠ CPF já cadastrado!")
                 del usuarios[numero]
                 return "ok"
 
-        # =========================
-        # SOLICITAÇÃO (mantida funcionando)
-        # =========================
-        if numero in solicitacoes:
-            # (mantive igual porque já estava funcionando perfeito)
-            pass
+            u["cpf"] = texto
+            u["etapa"] = "nome"
+            enviar(numero, "⚽ Digite seu nome:")
+            return "ok"
 
-        menu(numero)
-        return "ok"
+        # NOME
+        if u["etapa"] == "nome":
+            u["nome"] = texto
+            u["etapa"] = "cidade"
+
+            opcoes = {k:v for k,v in CIDADES.items() if v not in u["cidades"]}
+            lista = "\n".join([f"{k} {v}" for k,v in opcoes.items()])
+
+            enviar(numero, "📍 Escolha cidade:\n" + lista)
+            return "ok"
+
+        # ESCOLHER CIDADE
+        if u["etapa"] == "cidade":
+
+            if texto not in CIDADES:
+                enviar(numero, "❌ Opção inválida")
+                return "ok"
+
+            cidade = CIDADES[texto]
+
+            if cidade not in u["cidades"]:
+                u["cidades"].append(cidade)
+
+            u["etapa"] = "cidade_mais"
+            enviar(numero, "Adicionar outra cidade? (S/N)")
+            return "ok"
+
+        # MAIS CIDADE
+        if u["etapa"] == "cidade_mais":
+
+            resposta = sn(texto)
+
+            if resposta not in ["s","n"]:
+                enviar(numero, "❌ Digite S ou N")
+                return "ok"
+
+            if resposta == "s":
+                u["etapa"] = "cidade"
+
+                opcoes = {k:v for k,v in CIDADES.items() if v not in u["cidades"]}
+                lista = "\n".join([f"{k} {v}" for k,v in opcoes.items()])
+
+                enviar(numero, "📍 Escolha outra cidade:\n" + lista)
+                return "ok"
+
+            else:
+                u["etapa"] = "tipo"
+
+                opcoes = {k:v for k,v in TIPOS.items() if v not in u["tipos"]}
+                lista = "\n".join([f"{k} {v}" for k,v in opcoes.items()])
+
+                enviar(numero, "⚽ Escolha tipo:\n" + lista)
+                return "ok"
+
+        # ESCOLHER TIPO
+        if u["etapa"] == "tipo":
+
+            if texto not in TIPOS:
+                enviar(numero, "❌ Opção inválida")
+                return "ok"
+
+            tipo = TIPOS[texto]
+
+            if tipo not in u["tipos"]:
+                u["tipos"].append(tipo)
+
+            u["etapa"] = "tipo_mais"
+            enviar(numero, "Adicionar outro tipo? (S/N)")
+            return "ok"
+
+        # MAIS TIPO
+        if u["etapa"] == "tipo_mais":
+
+            resposta = sn(texto)
+
+            if resposta not in ["s","n"]:
+                enviar(numero, "❌ Digite S ou N")
+                return "ok"
+
+            if resposta == "s":
+                u["etapa"] = "tipo"
+
+                opcoes = {k:v for k,v in TIPOS.items() if v not in u["tipos"]}
+                lista = "\n".join([f"{k} {v}" for k,v in opcoes.items()])
+
+                enviar(numero, "⚽ Escolha outro tipo:\n" + lista)
+                return "ok"
+
+            else:
+                u["etapa"] = "campo"
+                enviar(numero, "🏟 Tipo de campo:\n1 Campo Oficial\n2 Society\n3 Futsal")
+                return "ok"
+
+        # CAMPO
+        if u["etapa"] == "campo":
+
+            if texto not in TIPO_CAMPO:
+                enviar(numero, "❌ Opção inválida")
+                return "ok"
+
+            u["campo"] = TIPO_CAMPO[texto]
+            u["etapa"] = "pix"
+            enviar(numero, "💰 Digite sua chave PIX:")
+            return "ok"
+
+        # PIX
+        if u["etapa"] == "pix":
+
+            conn = sqlite3.connect("lendarios.db")
+            cursor = conn.cursor()
+
+            cursor.execute("""
+            INSERT INTO atletas (numero,cpf,nome,cidades,tipos,campo,pix)
+            VALUES (?,?,?,?,?,?,?)
+            """, (
+                numero,
+                u["cpf"],
+                u["nome"],
+                ",".join(u["cidades"]),
+                ",".join(u["tipos"]),
+                u["campo"],
+                texto
+            ))
+
+            conn.commit()
+            conn.close()
+
+            enviar(numero, f"""🏆 Cadastro realizado com sucesso!
+
+Nome: {u['nome']}
+Cidades: {", ".join(u['cidades'])}
+Tipos: {", ".join(u['tipos'])}
+Campo: {u['campo']}
+""")
+
+            del usuarios[numero]
+            return "ok"
 
     except Exception as e:
         print("ERRO:", e)
