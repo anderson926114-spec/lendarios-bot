@@ -8,15 +8,12 @@ TOKEN = "EAAsCShhhFUoBRB1Rbs9EW5xCH0FGvZB7iQDECvbNPiMUyUvcygOZBF9hloJZC4rdmjLu1v
 PHONE_NUMBER_ID = "1094450353745202"
 VERIFY_TOKEN = "lendarios_token"
 
-usuarios = {}
-solicitacoes = {}
+convites = {}
+vagas = {}
 
 # =========================
 # FUNÇÕES
 # =========================
-def sn(texto):
-    return texto.strip().lower()
-
 def normalizar(numero):
     numero = "".join(filter(str.isdigit, numero))
     if numero.startswith("55") and len(numero) == 12:
@@ -37,86 +34,44 @@ def enviar(numero, texto):
 # =========================
 # BANCO
 # =========================
-def init_db():
+def get_atletas():
     conn = sqlite3.connect("lendarios.db")
     cursor = conn.cursor()
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS atletas (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        numero TEXT,
-        cpf TEXT UNIQUE,
-        nome TEXT,
-        cidades TEXT,
-        tipos TEXT,
-        campo TEXT,
-        pix TEXT
-    )
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS solicitacoes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        numero TEXT,
-        cpf TEXT,
-        endereco TEXT,
-        cidade TEXT,
-        nome_campo TEXT,
-        tipo_campo TEXT,
-        tipo TEXT,
-        data TEXT,
-        hora TEXT,
-        quantidade INTEGER,
-        valor REAL,
-        status TEXT
-    )
-    """)
-
-    conn.commit()
+    cursor.execute("SELECT numero,nome,cidades,tipos FROM atletas")
+    dados = cursor.fetchall()
     conn.close()
-
-init_db()
-
-# =========================
-# DADOS
-# =========================
-CIDADES = {
-    "1": "São José",
-    "2": "Palhoça",
-    "3": "Biguaçu",
-    "4": "Florianópolis / Continente",
-    "5": "Florianópolis / Ilha"
-}
-
-TIPOS = {
-    "1": "Goleiro",
-    "2": "Jogador Linha",
-    "3": "Árbitro"
-}
-
-TIPO_CAMPO = {
-    "1": "Campo Oficial",
-    "2": "Society",
-    "3": "Futsal"
-}
-
-VALORES = {
-    "Goleiro": 40,
-    "Jogador Linha": 30,
-    "Árbitro": 50
-}
+    return dados
 
 # =========================
-# MENU
+# MATCH
 # =========================
-def menu(numero):
-    enviar(numero, """🏆 LENDÁRIOS
+def enviar_convites(solicitacao_id, cidade, tipo, quantidade):
 
-1 🧤 Cadastro de atleta
-2 ⚽ Solicitar atleta
-3 ⭐ Avaliações
-4 👑 Admin
-5 🚪 Sair
+    atletas = get_atletas()
+
+    vagas[solicitacao_id] = {
+        "total": quantidade,
+        "aceitos": []
+    }
+
+    for a in atletas:
+        numero, nome, cidades, tipos = a
+
+        if cidade in cidades and tipo in tipos:
+
+            convites[numero] = {
+                "solicitacao": solicitacao_id
+            }
+
+            enviar(numero, f"""⚽ NOVA PARTIDA!
+
+📍 {cidade}
+⚽ {tipo}
+👥 Vagas: {quantidade}
+
+Responda:
+1 Aceitar
+2 Recusar
 """)
 
 # =========================
@@ -139,6 +94,7 @@ def webhook():
             return "ok"
 
         msg = value["messages"][0]
+
         if msg["type"] != "text":
             return "ok"
 
@@ -146,272 +102,68 @@ def webhook():
         texto = msg["text"]["body"].strip()
 
         # =========================
-        # MENU
+        # RESPOSTA CONVITE
         # =========================
-        if numero not in usuarios and numero not in solicitacoes:
+        if numero in convites:
 
+            convite = convites[numero]
+            solicitacao_id = convite["solicitacao"]
+
+            if solicitacao_id not in vagas:
+                enviar(numero, "❌ Vaga encerrada.")
+                del convites[numero]
+                return "ok"
+
+            controle = vagas[solicitacao_id]
+
+            # ACEITAR
             if texto == "1":
-                usuarios[numero] = {"etapa": "cpf", "cidades": [], "tipos": []}
-                enviar(numero, "🧾 Digite seu CPF:")
+
+                if numero in controle["aceitos"]:
+                    enviar(numero, "⚠ Você já aceitou.")
+                    return "ok"
+
+                if len(controle["aceitos"]) >= controle["total"]:
+                    enviar(numero, "❌ Vagas já preenchidas.")
+                    del convites[numero]
+                    return "ok"
+
+                controle["aceitos"].append(numero)
+
+                enviar(numero, "✅ Confirmado na partida!")
+
+                # COMPLETO
+                if len(controle["aceitos"]) == controle["total"]:
+                    for n in controle["aceitos"]:
+                        enviar(n, "🏆 Time completo!")
+
+                    del vagas[solicitacao_id]
+
+                del convites[numero]
                 return "ok"
 
-            if texto == "2":
-                solicitacoes[numero] = {"etapa": "cpf"}
-                enviar(numero, "🧾 Digite seu CPF:")
+            # RECUSAR
+            elif texto == "2":
+                enviar(numero, "❌ Você recusou.")
+                del convites[numero]
                 return "ok"
 
-            if texto == "3":
-                enviar(numero, "⭐ Avaliações em breve.")
-                return "ok"
+        # =========================
+        # TESTE MATCH
+        # =========================
+        if texto == "match":
 
-            if texto == "4":
-                enviar(numero, "👑 Área admin.")
-                return "ok"
+            enviar_convites(
+                solicitacao_id=1,
+                cidade="São José",
+                tipo="Goleiro",
+                quantidade=2
+            )
 
-            if texto == "5":
-                enviar(numero, "👋 Até mais!")
-                return "ok"
-
-            menu(numero)
+            enviar(numero, "🚀 Convites enviados!")
             return "ok"
 
-        # =========================
-        # CADASTRO COMPLETO
-        # =========================
-        if numero in usuarios:
-            u = usuarios[numero]
-
-            if u["etapa"] == "cpf":
-                conn = sqlite3.connect("lendarios.db")
-                cursor = conn.cursor()
-                cursor.execute("SELECT nome FROM atletas WHERE cpf=?", (texto,))
-                if cursor.fetchone():
-                    enviar(numero, "⚠ CPF já cadastrado!")
-                    conn.close()
-                    del usuarios[numero]
-                    return "ok"
-                conn.close()
-
-                u["cpf"] = texto
-                u["etapa"] = "nome"
-                enviar(numero, "⚽ Nome:")
-                return "ok"
-
-            if u["etapa"] == "nome":
-                u["nome"] = texto
-                u["etapa"] = "cidade"
-
-                op = {k:v for k,v in CIDADES.items() if v not in u["cidades"]}
-                enviar(numero, "📍 Cidade:\n" + "\n".join([f"{k} {v}" for k,v in op.items()]))
-                return "ok"
-
-            if u["etapa"] == "cidade":
-                if texto not in CIDADES:
-                    enviar(numero, "❌ Opção inválida")
-                    return "ok"
-
-                cidade = CIDADES[texto]
-                u["cidades"].append(cidade)
-
-                u["etapa"] = "cidade_mais"
-                enviar(numero, "Adicionar outra cidade? (S/N)")
-                return "ok"
-
-            if u["etapa"] == "cidade_mais":
-                resposta = sn(texto)
-
-                if resposta not in ["s","n"]:
-                    enviar(numero, "❌ Digite S ou N")
-                    return "ok"
-
-                if resposta == "s":
-                    u["etapa"] = "cidade"
-                    op = {k:v for k,v in CIDADES.items() if v not in u["cidades"]}
-                    enviar(numero, "📍 Outra cidade:\n" + "\n".join([f"{k} {v}" for k,v in op.items()]))
-                else:
-                    u["etapa"] = "tipo"
-                    op = {k:v for k,v in TIPOS.items() if v not in u["tipos"]}
-                    enviar(numero, "⚽ Tipo:\n" + "\n".join([f"{k} {v}" for k,v in op.items()]))
-
-                return "ok"
-
-            if u["etapa"] == "tipo":
-                if texto not in TIPOS:
-                    enviar(numero, "❌ Opção inválida")
-                    return "ok"
-
-                tipo = TIPOS[texto]
-                u["tipos"].append(tipo)
-
-                u["etapa"] = "tipo_mais"
-                enviar(numero, "Adicionar outro tipo? (S/N)")
-                return "ok"
-
-            if u["etapa"] == "tipo_mais":
-                resposta = sn(texto)
-
-                if resposta not in ["s","n"]:
-                    enviar(numero, "❌ Digite S ou N")
-                    return "ok"
-
-                if resposta == "s":
-                    u["etapa"] = "tipo"
-                    op = {k:v for k,v in TIPOS.items() if v not in u["tipos"]}
-                    enviar(numero, "⚽ Outro tipo:\n" + "\n".join([f"{k} {v}" for k,v in op.items()]))
-                else:
-                    u["etapa"] = "campo"
-                    enviar(numero, "🏟 Tipo de campo:\n1 Campo Oficial\n2 Society\n3 Futsal")
-
-                return "ok"
-
-            if u["etapa"] == "campo":
-                if texto not in TIPO_CAMPO:
-                    enviar(numero, "❌ Opção inválida")
-                    return "ok"
-
-                u["campo"] = TIPO_CAMPO[texto]
-                u["etapa"] = "pix"
-                enviar(numero, "💰 Chave PIX:")
-                return "ok"
-
-            if u["etapa"] == "pix":
-
-                conn = sqlite3.connect("lendarios.db")
-                cursor = conn.cursor()
-
-                cursor.execute("""
-                INSERT INTO atletas (numero,cpf,nome,cidades,tipos,campo,pix)
-                VALUES (?,?,?,?,?,?,?)
-                """, (
-                    numero,
-                    u["cpf"],
-                    u["nome"],
-                    ",".join(u["cidades"]),
-                    ",".join(u["tipos"]),
-                    u["campo"],
-                    texto
-                ))
-
-                conn.commit()
-                conn.close()
-
-                enviar(numero, "🏆 Cadastro realizado com sucesso!")
-                del usuarios[numero]
-                return "ok"
-
-        # =========================
-        # SOLICITAÇÃO COMPLETA
-        # =========================
-        if numero in solicitacoes:
-            s = solicitacoes[numero]
-
-            if s["etapa"] == "cpf":
-                s["cpf"] = texto
-                enviar(numero, "1 Nova solicitação\n2 Minhas solicitações")
-                s["etapa"] = "menu"
-                return "ok"
-
-            if s["etapa"] == "menu":
-
-                if texto == "2":
-                    conn = sqlite3.connect("lendarios.db")
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT cidade,data,hora,status FROM solicitacoes WHERE cpf=?", (s["cpf"],))
-                    dados = cursor.fetchall()
-                    conn.close()
-
-                    enviar(numero, str(dados))
-                    del solicitacoes[numero]
-                    return "ok"
-
-                s["etapa"] = "endereco"
-                enviar(numero, "📍 Endereço:")
-                return "ok"
-
-            if s["etapa"] == "endereco":
-                s["endereco"] = texto
-                enviar(numero, "📍 Cidade:\n" + "\n".join([f"{k} {v}" for k,v in CIDADES.items()]))
-                s["etapa"] = "cidade"
-                return "ok"
-
-            if s["etapa"] == "cidade":
-                s["cidade"] = CIDADES.get(texto)
-                enviar(numero, "🏟 Nome do campo:")
-                s["etapa"] = "nome_campo"
-                return "ok"
-
-            if s["etapa"] == "nome_campo":
-                s["nome_campo"] = texto
-                enviar(numero, "🏟 Tipo de campo:\n1 Campo Oficial\n2 Society\n3 Futsal")
-                s["etapa"] = "tipo_campo"
-                return "ok"
-
-            if s["etapa"] == "tipo_campo":
-                s["tipo_campo"] = TIPO_CAMPO.get(texto)
-                enviar(numero, "⚽ Tipo:\n1 Goleiro\n2 Jogador Linha\n3 Árbitro")
-                s["etapa"] = "tipo"
-                return "ok"
-
-            if s["etapa"] == "tipo":
-                s["tipo"] = TIPOS.get(texto)
-                enviar(numero, "📅 Data:")
-                s["etapa"] = "data"
-                return "ok"
-
-            if s["etapa"] == "data":
-                s["data"] = texto
-                enviar(numero, "⏰ Hora:")
-                s["etapa"] = "hora"
-                return "ok"
-
-            if s["etapa"] == "hora":
-                s["hora"] = texto
-                enviar(numero, "👥 Quantidade de atletas:")
-                s["etapa"] = "qtd"
-                return "ok"
-
-            if s["etapa"] == "qtd":
-                qtd = int(texto)
-                valor = VALORES[s["tipo"]] * qtd
-
-                conn = sqlite3.connect("lendarios.db")
-                cursor = conn.cursor()
-
-                cursor.execute("""
-                INSERT INTO solicitacoes
-                (numero,cpf,endereco,cidade,nome_campo,tipo_campo,tipo,data,hora,quantidade,valor,status)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-                """, (
-                    numero,
-                    s["cpf"],
-                    s["endereco"],
-                    s["cidade"],
-                    s["nome_campo"],
-                    s["tipo_campo"],
-                    s["tipo"],
-                    s["data"],
-                    s["hora"],
-                    qtd,
-                    valor,
-                    "aberto"
-                ))
-
-                conn.commit()
-                conn.close()
-
-                enviar(numero, f"""⚽ Solicitação realizada!
-
-📍 {s['cidade']}
-🏟 {s['nome_campo']} ({s['tipo_campo']})
-⚽ {s['tipo']}
-👥 {qtd}
-💰 R$ {valor}
-""")
-
-                del solicitacoes[numero]
-                return "ok"
-
-        menu(numero)
+        enviar(numero, "Digite: match")
         return "ok"
 
     except Exception as e:
@@ -421,7 +173,7 @@ def webhook():
 
 @app.route("/")
 def home():
-    return "LENDARIOS ONLINE"
+    return "MATCH NIVEL 2 ONLINE"
 
 if __name__ == "__main__":
     app.run(port=5000)
