@@ -4,10 +4,12 @@ import sqlite3
 
 app = Flask(__name__)
 
-TOKEN = "EAAsCShhhFUoBRB1Rbs9EW5xCH0FGvZB7iQDECvbNPiMUyUvcygOZBF9hloJZC4rdmjLu1vMY6BgUPzttv635QBgYKotm1GOtPZCCLwYXH6IL5vDWpVPoZClv1hZAepe5yvMa3SNaCjkFAdrCWnTqf0TR7oZBgJyNzZAOcluV6JXU47h0R2PMELmEy3B3Y47XwuTZA5ZCHTGhjg7LZC7iZADM0gxA3QXQrpnLXfw4I3d9YE597L8BjaRBiupUpw0MQD8bMpZBXr1BXf9NgteOX9ZAUuB1z3rICM"
+TOKEN = "EAAsCShhhFUoBREHsyailbQZBqBS7QeWfgyS9Uxbswl1uZCPIgWZA1WpW9YzZAvMzSkr5quYG6Kmu05xbpgMK0ScBojsZC5jznykBlg6Eem8AyWM0tysQv4EcL4Wd0EDsnZBbv4udRIxs90V6yhPYZAF6y63TaaCG4NJ1czQwTennVCYETJ3Ka5XhRewrPXPVO5ngWddUA782hn5ldMqBTLjo4tvO0pLl8Snd8HZCHDJV4x49PrZCuZBZAXmOevp65WbRcyaVcyZB32eXAZBNT3ZCYVULPI6jPAQgZDZD"
 PHONE_NUMBER_ID = "1094450353745202"
 VERIFY_TOKEN = "lendarios_token"
 
+usuarios = {}
+solicitacoes_fluxo = {}
 convites = {}
 vagas = {}
 
@@ -29,55 +31,20 @@ def enviar(numero, texto):
         "type": "text",
         "text": {"body": texto}
     }
-    r = requests.post(url, headers=headers, json=payload)
-    print("ENVIO:", r.status_code, r.text)
+    requests.post(url, headers=headers, json=payload)
 
 # =========================
 # BANCO
 # =========================
-def init_db():
-    conn = sqlite3.connect("lendarios.db")
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS atletas (
-        numero TEXT,
-        nome TEXT,
-        cidades TEXT,
-        tipos TEXT
-    )
-    """)
-
-    conn.commit()
-    conn.close()
-
-init_db()
+def conectar():
+    return sqlite3.connect("lendarios.db")
 
 # =========================
-# INSERIR ATLETAS TESTE
-# =========================
-def criar_atletas_teste():
-
-    conn = sqlite3.connect("lendarios.db")
-    cursor = conn.cursor()
-
-    cursor.execute("DELETE FROM atletas")
-
-    # 👉 COLOQUE SEU NÚMERO AQUI
-    cursor.execute("INSERT INTO atletas VALUES (?,?,?,?)",
-                   ("5548984845799", "Você Teste", "São José", "Goleiro"))
-
-    conn.commit()
-    conn.close()
-
-# =========================
-# BUSCAR ATLETAS
+# MATCH AUTOMÁTICO
 # =========================
 def buscar_atletas(cidade, tipo):
-
-    conn = sqlite3.connect("lendarios.db")
+    conn = conectar()
     cursor = conn.cursor()
-
     cursor.execute("SELECT numero,nome,cidades,tipos FROM atletas")
     dados = cursor.fetchall()
     conn.close()
@@ -92,18 +59,12 @@ def buscar_atletas(cidade, tipo):
 
     return resultado
 
-# =========================
-# MATCH
-# =========================
-def enviar_convites(cidade, tipo, quantidade):
+def disparar_match(solicitacao_id, cidade, tipo, quantidade):
 
     atletas = buscar_atletas(cidade, tipo)
 
     if not atletas:
-        print("⚠ Nenhum atleta encontrado")
         return
-
-    solicitacao_id = 1
 
     vagas[solicitacao_id] = {
         "total": quantidade,
@@ -125,6 +86,19 @@ def enviar_convites(cidade, tipo, quantidade):
 
 1 Aceitar
 2 Recusar
+""")
+
+# =========================
+# MENU
+# =========================
+def menu(numero):
+    enviar(numero, """🏆 LENDÁRIOS
+
+1 Cadastro atleta
+2 Solicitar atleta
+3 Avaliações
+4 Admin
+5 Sair
 """)
 
 # =========================
@@ -154,8 +128,6 @@ def webhook():
         numero = normalizar(msg["from"])
         texto = msg["text"]["body"].strip()
 
-        print("MSG:", numero, texto)
-
         # =========================
         # RESPOSTA CONVITE
         # =========================
@@ -180,7 +152,7 @@ def webhook():
 
                 controle["aceitos"].append(numero)
 
-                enviar(numero, "✅ Você entrou no jogo!")
+                enviar(numero, "✅ Confirmado!")
 
                 if len(controle["aceitos"]) == controle["total"]:
                     for n in controle["aceitos"]:
@@ -189,27 +161,63 @@ def webhook():
                 return "ok"
 
             if texto == "2":
-                enviar(numero, "❌ Você recusou")
+                enviar(numero, "❌ Recusado")
                 return "ok"
 
         # =========================
-        # COMANDO TESTE
+        # MENU
         # =========================
-        if texto.lower() == "match":
+        if numero not in solicitacoes_fluxo:
 
-            criar_atletas_teste()
+            if texto == "2":
+                solicitacoes_fluxo[numero] = {"etapa": "cidade"}
+                enviar(numero, "📍 Cidade:")
+                return "ok"
 
-            enviar_convites(
-                cidade="São José",
-                tipo="Goleiro",
-                quantidade=2
-            )
-
-            enviar(numero, "🚀 Convites enviados!")
+            menu(numero)
             return "ok"
 
-        enviar(numero, "Digite: match")
-        return "ok"
+        # =========================
+        # FLUXO SOLICITAÇÃO
+        # =========================
+        s = solicitacoes_fluxo[numero]
+
+        if s["etapa"] == "cidade":
+            s["cidade"] = texto
+            s["etapa"] = "tipo"
+            enviar(numero, "⚽ Tipo (Goleiro/Jogador Linha/Árbitro):")
+            return "ok"
+
+        if s["etapa"] == "tipo":
+            s["tipo"] = texto
+            s["etapa"] = "qtd"
+            enviar(numero, "👥 Quantidade:")
+            return "ok"
+
+        if s["etapa"] == "qtd":
+
+            qtd = int(texto)
+
+            conn = conectar()
+            cursor = conn.cursor()
+
+            cursor.execute("""
+            INSERT INTO solicitacoes (cidade,tipo,quantidade)
+            VALUES (?,?,?)
+            """, (s["cidade"], s["tipo"], qtd))
+
+            solicitacao_id = cursor.lastrowid
+
+            conn.commit()
+            conn.close()
+
+            # 🚀 AQUI A MÁGICA
+            disparar_match(solicitacao_id, s["cidade"], s["tipo"], qtd)
+
+            enviar(numero, "🚀 Solicitação criada e jogadores acionados!")
+
+            del solicitacoes_fluxo[numero]
+            return "ok"
 
     except Exception as e:
         print("ERRO:", e)
@@ -218,7 +226,7 @@ def webhook():
 
 @app.route("/")
 def home():
-    return "MATCH OK"
+    return "LENDARIOS FULL ONLINE"
 
 if __name__ == "__main__":
     app.run(port=5000)
