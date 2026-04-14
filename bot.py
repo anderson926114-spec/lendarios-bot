@@ -139,7 +139,6 @@ def webhook():
             return "ok"
 
         msg = value["messages"][0]
-
         if msg["type"] != "text":
             return "ok"
 
@@ -177,24 +176,131 @@ def webhook():
             return "ok"
 
         # =========================
-        # CADASTRO (RESUMIDO)
+        # CADASTRO COMPLETO
         # =========================
         if numero in usuarios:
             u = usuarios[numero]
 
             if u["etapa"] == "cpf":
+                conn = sqlite3.connect("lendarios.db")
+                cursor = conn.cursor()
+                cursor.execute("SELECT nome FROM atletas WHERE cpf=?", (texto,))
+                if cursor.fetchone():
+                    enviar(numero, "⚠ CPF já cadastrado!")
+                    conn.close()
+                    del usuarios[numero]
+                    return "ok"
+                conn.close()
+
                 u["cpf"] = texto
                 u["etapa"] = "nome"
-                enviar(numero, "Nome:")
+                enviar(numero, "⚽ Nome:")
                 return "ok"
 
             if u["etapa"] == "nome":
-                enviar(numero, "🏆 Cadastro concluído!")
+                u["nome"] = texto
+                u["etapa"] = "cidade"
+
+                op = {k:v for k,v in CIDADES.items() if v not in u["cidades"]}
+                enviar(numero, "📍 Cidade:\n" + "\n".join([f"{k} {v}" for k,v in op.items()]))
+                return "ok"
+
+            if u["etapa"] == "cidade":
+                if texto not in CIDADES:
+                    enviar(numero, "❌ Opção inválida")
+                    return "ok"
+
+                cidade = CIDADES[texto]
+                u["cidades"].append(cidade)
+
+                u["etapa"] = "cidade_mais"
+                enviar(numero, "Adicionar outra cidade? (S/N)")
+                return "ok"
+
+            if u["etapa"] == "cidade_mais":
+                resposta = sn(texto)
+
+                if resposta not in ["s","n"]:
+                    enviar(numero, "❌ Digite S ou N")
+                    return "ok"
+
+                if resposta == "s":
+                    u["etapa"] = "cidade"
+                    op = {k:v for k,v in CIDADES.items() if v not in u["cidades"]}
+                    enviar(numero, "📍 Outra cidade:\n" + "\n".join([f"{k} {v}" for k,v in op.items()]))
+                else:
+                    u["etapa"] = "tipo"
+                    op = {k:v for k,v in TIPOS.items() if v not in u["tipos"]}
+                    enviar(numero, "⚽ Tipo:\n" + "\n".join([f"{k} {v}" for k,v in op.items()]))
+
+                return "ok"
+
+            if u["etapa"] == "tipo":
+                if texto not in TIPOS:
+                    enviar(numero, "❌ Opção inválida")
+                    return "ok"
+
+                tipo = TIPOS[texto]
+                u["tipos"].append(tipo)
+
+                u["etapa"] = "tipo_mais"
+                enviar(numero, "Adicionar outro tipo? (S/N)")
+                return "ok"
+
+            if u["etapa"] == "tipo_mais":
+                resposta = sn(texto)
+
+                if resposta not in ["s","n"]:
+                    enviar(numero, "❌ Digite S ou N")
+                    return "ok"
+
+                if resposta == "s":
+                    u["etapa"] = "tipo"
+                    op = {k:v for k,v in TIPOS.items() if v not in u["tipos"]}
+                    enviar(numero, "⚽ Outro tipo:\n" + "\n".join([f"{k} {v}" for k,v in op.items()]))
+                else:
+                    u["etapa"] = "campo"
+                    enviar(numero, "🏟 Tipo de campo:\n1 Campo Oficial\n2 Society\n3 Futsal")
+
+                return "ok"
+
+            if u["etapa"] == "campo":
+                if texto not in TIPO_CAMPO:
+                    enviar(numero, "❌ Opção inválida")
+                    return "ok"
+
+                u["campo"] = TIPO_CAMPO[texto]
+                u["etapa"] = "pix"
+                enviar(numero, "💰 Chave PIX:")
+                return "ok"
+
+            if u["etapa"] == "pix":
+
+                conn = sqlite3.connect("lendarios.db")
+                cursor = conn.cursor()
+
+                cursor.execute("""
+                INSERT INTO atletas (numero,cpf,nome,cidades,tipos,campo,pix)
+                VALUES (?,?,?,?,?,?,?)
+                """, (
+                    numero,
+                    u["cpf"],
+                    u["nome"],
+                    ",".join(u["cidades"]),
+                    ",".join(u["tipos"]),
+                    u["campo"],
+                    texto
+                ))
+
+                conn.commit()
+                conn.close()
+
+                enviar(numero, "🏆 Cadastro realizado com sucesso!")
                 del usuarios[numero]
                 return "ok"
 
         # =========================
-        # SOLICITAÇÃO (COMPLETA)
+        # SOLICITAÇÃO COMPLETA
         # =========================
         if numero in solicitacoes:
             s = solicitacoes[numero]
@@ -224,43 +330,43 @@ def webhook():
 
             if s["etapa"] == "endereco":
                 s["endereco"] = texto
-                enviar(numero, "Cidade:\n1 São José\n2 Palhoça\n3 Biguaçu")
+                enviar(numero, "📍 Cidade:\n" + "\n".join([f"{k} {v}" for k,v in CIDADES.items()]))
                 s["etapa"] = "cidade"
                 return "ok"
 
             if s["etapa"] == "cidade":
                 s["cidade"] = CIDADES.get(texto)
                 enviar(numero, "🏟 Nome do campo:")
-                s["etapa"] = "campo"
+                s["etapa"] = "nome_campo"
                 return "ok"
 
-            if s["etapa"] == "campo":
-                s["campo"] = texto
-                enviar(numero, "Tipo campo:\n1 Campo Oficial\n2 Society\n3 Futsal")
+            if s["etapa"] == "nome_campo":
+                s["nome_campo"] = texto
+                enviar(numero, "🏟 Tipo de campo:\n1 Campo Oficial\n2 Society\n3 Futsal")
                 s["etapa"] = "tipo_campo"
                 return "ok"
 
             if s["etapa"] == "tipo_campo":
                 s["tipo_campo"] = TIPO_CAMPO.get(texto)
-                enviar(numero, "Tipo:\n1 Goleiro\n2 Linha\n3 Árbitro")
+                enviar(numero, "⚽ Tipo:\n1 Goleiro\n2 Jogador Linha\n3 Árbitro")
                 s["etapa"] = "tipo"
                 return "ok"
 
             if s["etapa"] == "tipo":
                 s["tipo"] = TIPOS.get(texto)
-                enviar(numero, "Data:")
+                enviar(numero, "📅 Data:")
                 s["etapa"] = "data"
                 return "ok"
 
             if s["etapa"] == "data":
                 s["data"] = texto
-                enviar(numero, "Hora:")
+                enviar(numero, "⏰ Hora:")
                 s["etapa"] = "hora"
                 return "ok"
 
             if s["etapa"] == "hora":
                 s["hora"] = texto
-                enviar(numero, "Quantidade:")
+                enviar(numero, "👥 Quantidade de atletas:")
                 s["etapa"] = "qtd"
                 return "ok"
 
@@ -268,7 +374,40 @@ def webhook():
                 qtd = int(texto)
                 valor = VALORES[s["tipo"]] * qtd
 
-                enviar(numero, f"💰 Total: R$ {valor}")
+                conn = sqlite3.connect("lendarios.db")
+                cursor = conn.cursor()
+
+                cursor.execute("""
+                INSERT INTO solicitacoes
+                (numero,cpf,endereco,cidade,nome_campo,tipo_campo,tipo,data,hora,quantidade,valor,status)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                """, (
+                    numero,
+                    s["cpf"],
+                    s["endereco"],
+                    s["cidade"],
+                    s["nome_campo"],
+                    s["tipo_campo"],
+                    s["tipo"],
+                    s["data"],
+                    s["hora"],
+                    qtd,
+                    valor,
+                    "aberto"
+                ))
+
+                conn.commit()
+                conn.close()
+
+                enviar(numero, f"""⚽ Solicitação realizada!
+
+📍 {s['cidade']}
+🏟 {s['nome_campo']} ({s['tipo_campo']})
+⚽ {s['tipo']}
+👥 {qtd}
+💰 R$ {valor}
+""")
+
                 del solicitacoes[numero]
                 return "ok"
 
