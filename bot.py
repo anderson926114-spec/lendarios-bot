@@ -9,6 +9,7 @@ PHONE_NUMBER_ID = "1094450353745202"
 VERIFY_TOKEN = "lendarios_token"
 
 usuarios = {}
+solicitacoes = {}
 
 # =========================
 # FUNÇÕES
@@ -88,6 +89,9 @@ def menu(numero):
     enviar(numero, """🏆 LENDÁRIOS
 
 1 🧤 Cadastro de atleta
+2 ⚽ Solicitar atleta
+3 ⭐ Avaliações
+4 👑 Admin
 5 🚪 Sair
 """)
 
@@ -134,19 +138,31 @@ def webhook():
                 enviar(numero, "🧾 Digite seu CPF:")
                 return "ok"
 
-            if texto == "5":
+            elif texto == "2":
+                enviar(numero, "⚽ Solicitação em breve disponível.")
+                return "ok"
+
+            elif texto == "3":
+                enviar(numero, "⭐ Sistema de avaliações em breve.")
+                return "ok"
+
+            elif texto == "4":
+                enviar(numero, "👑 Área do administrador.")
+                return "ok"
+
+            elif texto == "5":
                 enviar(numero, "👋 Até mais!")
                 return "ok"
 
-            menu(numero)
-            return "ok"
+            else:
+                menu(numero)
+                return "ok"
 
         # =========================
         # FLUXO CADASTRO
         # =========================
         u = usuarios[numero]
 
-        # CPF
         if u["etapa"] == "cpf":
 
             conn = sqlite3.connect("lendarios.db")
@@ -165,7 +181,6 @@ def webhook():
             enviar(numero, "⚽ Digite seu nome:")
             return "ok"
 
-        # NOME
         if u["etapa"] == "nome":
             u["nome"] = texto
             u["etapa"] = "cidade"
@@ -176,7 +191,6 @@ def webhook():
             enviar(numero, "📍 Escolha cidade:\n" + lista)
             return "ok"
 
-        # ESCOLHER CIDADE
         if u["etapa"] == "cidade":
 
             if texto not in CIDADES:
@@ -192,7 +206,6 @@ def webhook():
             enviar(numero, "Adicionar outra cidade? (S/N)")
             return "ok"
 
-        # MAIS CIDADE
         if u["etapa"] == "cidade_mais":
 
             resposta = sn(texto)
@@ -219,7 +232,6 @@ def webhook():
                 enviar(numero, "⚽ Escolha tipo:\n" + lista)
                 return "ok"
 
-        # ESCOLHER TIPO
         if u["etapa"] == "tipo":
 
             if texto not in TIPOS:
@@ -235,7 +247,6 @@ def webhook():
             enviar(numero, "Adicionar outro tipo? (S/N)")
             return "ok"
 
-        # MAIS TIPO
         if u["etapa"] == "tipo_mais":
 
             resposta = sn(texto)
@@ -258,7 +269,6 @@ def webhook():
                 enviar(numero, "🏟 Tipo de campo:\n1 Campo Oficial\n2 Society\n3 Futsal")
                 return "ok"
 
-        # CAMPO
         if u["etapa"] == "campo":
 
             if texto not in TIPO_CAMPO:
@@ -270,7 +280,6 @@ def webhook():
             enviar(numero, "💰 Digite sua chave PIX:")
             return "ok"
 
-        # PIX
         if u["etapa"] == "pix":
 
             conn = sqlite3.connect("lendarios.db")
@@ -292,14 +301,7 @@ def webhook():
             conn.commit()
             conn.close()
 
-            enviar(numero, f"""🏆 Cadastro realizado com sucesso!
-
-Nome: {u['nome']}
-Cidades: {", ".join(u['cidades'])}
-Tipos: {", ".join(u['tipos'])}
-Campo: {u['campo']}
-""")
-
+            enviar(numero, "🏆 Cadastro realizado com sucesso!")
             del usuarios[numero]
             return "ok"
 
