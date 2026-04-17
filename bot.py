@@ -248,6 +248,19 @@ Valor: R${total}
         menu(numero)
         return "ok"
 
+    @app.route("/teste")
+def teste():
+    try:
+        r = requests.post(
+            "https://hook.us2.make.com/gcgl67hj5uaww80orbjetvjrsuz7ya78",
+            json={"teste": "funcionando"}
+        )
+
+        return f"ENVIADO | STATUS: {r.status_code} | RESPOSTA: {r.text}"
+
+    except Exception as e:
+        return f"ERRO: {str(e)}"
+
     except Exception as e:
         print("ERRO:", e)
 
