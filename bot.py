@@ -257,6 +257,7 @@ Valor: R${total}
 def home():
     return "BOT ONLINE"
 
+
 @app.route("/teste")
 def teste():
     requests.post("https://hook.us2.make.com/gcgl67hj5uaww80orbjetvjrsuz7ya78",
