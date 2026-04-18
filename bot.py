@@ -6,8 +6,8 @@ app = Flask(__name__)
 # =========================
 # CONFIG
 # =========================
-TOKEN = "SEU_ACCESS_TOKEN"
-PHONE_NUMBER_ID = "SEU_PHONE_NUMBER_ID"
+TOKEN = "EAAsCShhhFUoBRGTZCd2ye7vngDcsXxExbvZAqKDH267WUAwXZCcxtorbo6CyAKqZAt365BSZBdO35b5LCjm3UIR9CymZBRjbZCEgHFgxKeHSkMLDUIAGpByKVqrX0ItzmWpqG8ZAauP4U6VHLdf7IkSUXje5ioms5LWfpWo2YnrsE4UgAMauTaRrTb3tghy14fOVDyvWyZBkFfH93biZAYGQ1iYqSU7ehUwQ1Ksk0xdBGxs7BRn9g75ZAgD0cJYL7pbdRszVMRGSVdiEDwTWLcebHHsL15P"
+PHONE_NUMBER_ID = "1094450353745202"
 VERIFY_TOKEN = "lendarios_token"
 
 MAKE_WEBHOOK_URL = "https://hook.us2.make.com/gcgl67hj5uaww80orbjetvjrsuz7ya78"
