@@ -1,14 +1,15 @@
 from flask import Flask, request
 import requests
-import sqlite3
 
 app = Flask(__name__)
 
-TOKEN = "EAAsCShhhFUoBRGTZCd2ye7vngDcsXxExbvZAqKDH267WUAwXZCcxtorbo6CyAKqZAt365BSZBdO35b5LCjm3UIR9CymZBRjbZCEgHFgxKeHSkMLDUIAGpByKVqrX0ItzmWpqG8ZAauP4U6VHLdf7IkSUXje5ioms5LWfpWo2YnrsE4UgAMauTaRrTb3tghy14fOVDyvWyZBkFfH93biZAYGQ1iYqSU7ehUwQ1Ksk0xdBGxs7BRn9g75ZAgD0cJYL7pbdRszVMRGSVdiEDwTWLcebHHsL15P"
-PHONE_NUMBER_ID = "1094450353745202"
+# =========================
+# CONFIG
+# =========================
+TOKEN = "SEU_ACCESS_TOKEN"
+PHONE_NUMBER_ID = "SEU_PHONE_NUMBER_ID"
 VERIFY_TOKEN = "lendarios_token"
 
-# 🔥 WEBHOOK DO MAKE
 MAKE_WEBHOOK_URL = "https://hook.us2.make.com/gcgl67hj5uaww80orbjetvjrsuz7ya78"
 
 usuarios = {}
@@ -102,9 +103,8 @@ def webhook():
             return request.args.get("hub.challenge")
         return "erro", 403
 
-    data = request.get_json()
-
     try:
+        data = request.get_json()
         msg = data["entry"][0]["changes"][0]["value"]["messages"][0]
 
         numero = normalizar_numero(msg["from"])
@@ -113,7 +113,7 @@ def webhook():
         print("MSG:", numero, texto)
 
         # =========================
-        # MENU
+        # MENU INICIAL
         # =========================
         if numero not in usuarios and numero not in solicitacoes:
 
@@ -122,16 +122,17 @@ def webhook():
                 enviar(numero, "Digite seu CPF:")
                 return "ok"
 
-            if texto == "2":
+            elif texto == "2":
                 solicitacoes[numero] = {"etapa": "cpf"}
                 enviar(numero, "Digite seu CPF:")
                 return "ok"
 
-            menu(numero)
-            return "ok"
+            else:
+                menu(numero)
+                return "ok"
 
         # =========================
-        # CADASTRO ATLETA
+        # CADASTRO
         # =========================
         if numero in usuarios:
             u = usuarios[numero]
@@ -142,27 +143,27 @@ def webhook():
                 enviar(numero, "Digite seu nome:")
                 return "ok"
 
-            if u["etapa"] == "nome":
+            elif u["etapa"] == "nome":
                 u["nome"] = texto
                 u["etapa"] = "cidade"
                 lista = "\n".join([f"{k} {v}" for k,v in CIDADES.items()])
                 enviar(numero, "Escolha cidade:\n" + lista)
                 return "ok"
 
-            if u["etapa"] == "cidade" and texto in CIDADES:
+            elif u["etapa"] == "cidade" and texto in CIDADES:
                 u["cidade"] = CIDADES[texto]
                 u["etapa"] = "tipo"
                 lista = "\n".join([f"{k} {v}" for k,v in TIPOS.items()])
                 enviar(numero, "Escolha tipo:\n" + lista)
                 return "ok"
 
-            if u["etapa"] == "tipo" and texto in TIPOS:
+            elif u["etapa"] == "tipo" and texto in TIPOS:
                 u["tipo"] = TIPOS[texto]
                 u["etapa"] = "pix"
                 enviar(numero, "Digite sua chave PIX:")
                 return "ok"
 
-            if u["etapa"] == "pix":
+            elif u["etapa"] == "pix":
                 u["pix"] = texto
 
                 enviar(numero, f"""✅ Cadastro realizado!
@@ -173,7 +174,6 @@ Tipo: {u['tipo']}
 PIX: {u['pix']}
 """)
 
-                # 🔥 ENVIA PARA MAKE
                 enviar_para_make("cadastro", u)
 
                 del usuarios[numero]
@@ -192,34 +192,38 @@ PIX: {u['pix']}
                 enviar(numero, "Cidade:\n" + lista)
                 return "ok"
 
-            if s["etapa"] == "cidade" and texto in CIDADES:
+            elif s["etapa"] == "cidade" and texto in CIDADES:
                 s["cidade"] = CIDADES[texto]
                 s["etapa"] = "campo"
                 enviar(numero, "Nome do campo:")
                 return "ok"
 
-            if s["etapa"] == "campo":
+            elif s["etapa"] == "campo":
                 s["campo"] = texto
                 s["etapa"] = "tipo_campo"
                 lista = "\n".join([f"{k} {v}" for k,v in CAMPOS.items()])
                 enviar(numero, "Tipo de campo:\n" + lista)
                 return "ok"
 
-            if s["etapa"] == "tipo_campo" and texto in CAMPOS:
+            elif s["etapa"] == "tipo_campo" and texto in CAMPOS:
                 s["tipo_campo"] = CAMPOS[texto]
                 s["etapa"] = "tipo"
                 lista = "\n".join([f"{k} {v}" for k,v in TIPOS.items()])
                 enviar(numero, "Tipo atleta:\n" + lista)
                 return "ok"
 
-            if s["etapa"] == "tipo" and texto in TIPOS:
+            elif s["etapa"] == "tipo" and texto in TIPOS:
                 s["tipo"] = TIPOS[texto]
                 s["etapa"] = "qtd"
                 enviar(numero, "Quantidade de atletas:")
                 return "ok"
 
-            if s["etapa"] == "qtd":
-                s["qtd"] = int(texto)
+            elif s["etapa"] == "qtd":
+                try:
+                    s["qtd"] = int(texto)
+                except:
+                    enviar(numero, "Digite apenas números.")
+                    return "ok"
 
                 valores = {
                     "Goleiro": 40,
@@ -239,45 +243,39 @@ Qtd: {s['qtd']}
 Valor: R${total}
 """)
 
-                # 🔥 ENVIA PARA MAKE
                 enviar_para_make("solicitacao", s)
 
                 del solicitacoes[numero]
                 return "ok"
 
+        # fallback
         menu(numero)
         return "ok"
 
-    @app.route("/teste")
-def teste():
-    try:
-        r = requests.post(
-            "https://hook.us2.make.com/gcgl67hj5uaww80orbjetvjrsuz7ya78",
-            json={"teste": "funcionando"}
-        )
-
-        return f"ENVIADO | STATUS: {r.status_code} | RESPOSTA: {r.text}"
-
-    except Exception as e:
-        return f"ERRO: {str(e)}"
-
     except Exception as e:
         print("ERRO:", e)
+        return "ok", 200
 
-    return "ok", 200
-
+# =========================
+# ROTAS EXTRAS
+# =========================
 @app.route("/")
 def home():
     return "BOT ONLINE"
-    @app.route("/teste")
+
+@app.route("/teste")
 def teste():
     try:
         r = requests.post(
-            "https://hook.us2.make.com/gcgl67hj5uaww80orbjetvjrsuz7ya78",
+            MAKE_WEBHOOK_URL,
             json={"teste": "funcionando"}
         )
-
         return f"ENVIADO | STATUS: {r.status_code} | RESPOSTA: {r.text}"
-
     except Exception as e:
         return f"ERRO: {str(e)}"
+
+# =========================
+# START
+# =========================
+if __name__ == "__main__":
+    app.run(port=5000)
