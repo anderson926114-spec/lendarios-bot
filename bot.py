@@ -7,7 +7,7 @@ TOKEN = "EAAsCShhhFUoBRCCbwN8THIPf5QVRa0dEszxfEy6AGTyvDsRZB3vqg8SCWCWrZAGkLBgzxq
 PHONE_NUMBER_ID = "1094450353745202"
 VERIFY_TOKEN = "lendarios_token"
 
-MAKE_WEBHOOK_URL = "https://hook.us2.make.com/gcgl67hj5uaww80orbjetvjrsuz7ya78"
+MAKE_WEBHOOK_URL = "https://hook.us2.make.com/pcgibko4cd3yqr5375q4nsy5fgpip4m2"
 usuarios = {}
 solicitacoes = {}
 
