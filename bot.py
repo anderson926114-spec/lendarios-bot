@@ -165,6 +165,7 @@ def webhook():
             enviar_make(dados)
 
         
+            print("ENVIADO PARA MAKE:", dados)
 
 
             del usuarios[numero]
