@@ -147,7 +147,7 @@ def webhook():
             enviar(numero, "Digite sua chave PIX:")
             return "ok"
 
-        # PIX FINAL
+        # PIX 
         if u["etapa"] == "pix":
             u["pix"] = texto
 
