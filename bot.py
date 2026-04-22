@@ -158,7 +158,7 @@ def webhook():
                 "nome": u["nome"],
                 "cidades": ",".join(u["cidades"]),
                 "tipos": ",".join(u["tipos"]),
-                "chave_pix": u["pix"],
+                "pix": u["pix"],
                 "telefone": numero
             }
 
