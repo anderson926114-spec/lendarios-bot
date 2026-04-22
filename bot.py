@@ -162,6 +162,10 @@ def webhook():
                 "telefone": numero
             })
 
+            print(">>> ENVIANDO PARA MAKE:", dados)
+
+            requesrs.post(MAKE_WEBHOOK_URL, json=dados)
+
             del usuarios[numero]
             return "ok"
 
