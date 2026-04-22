@@ -153,18 +153,19 @@ def webhook():
 
             enviar(numero, "Cadastro realizado com sucesso!")
 
-            enviar_make({
+            dados = {
                 "cpf": u["cpf"],
                 "nome": u["nome"],
                 "cidades": ",".join(u["cidades"]),
                 "tipos": ",".join(u["tipos"]),
                 "pix": u["pix"],
                 "telefone": numero
-            })
+            }
+
+            enviar_make(dados)
 
             print(">>> ENVIANDO PARA MAKE:", dados)
 
-            requesrs.post(MAKE_WEBHOOK_URL, json=dados)
 
             del usuarios[numero]
             return "ok"
