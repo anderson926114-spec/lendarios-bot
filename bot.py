@@ -7,9 +7,11 @@ TOKEN = "EAAsCShhhFUoBRdDdeZCOjR3J6MZB1kxRTsi14AplF0ZAyEa9kRgCo9Y8Xw8ZCspwGU6cr9
 PHONE_NUMBER_ID = "1094450353745202"
 VERIFY_TOKEN = "lendarios_token"
 
-MAKE_WEBHOOK_URL = "https://hook.us2.make.com/pcgibko4cd3yqr5375q4nsy5fgpip4m2"
+MAKE_ATLETAS = "SEU_WEBHOOK_ATLETAS"
+MAKE_SOLICITACOES = "SEU_WEBHOOK_SOLICITACOES"
 
 usuarios = {}
+solicitacoes = {}
 
 CIDADES = {
     "1": "São José",
@@ -20,9 +22,15 @@ CIDADES = {
 }
 
 TIPOS = {
-    "1": "Goleiro",
-    "2": "Jogador Linha",
-    "3": "Árbitro"
+    "1": ("Goleiro", 40),
+    "2": ("Jogador Linha", 30),
+    "3": ("Árbitro", 50)
+}
+
+CAMPOS = {
+    "1": "Campo Oficial",
+    "2": "Society",
+    "3": "Futsal"
 }
 
 def normalizar(numero):
@@ -33,10 +41,7 @@ def normalizar(numero):
 
 def enviar(numero, texto):
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {TOKEN}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
     payload = {
         "messaging_product": "whatsapp",
         "to": numero,
@@ -45,12 +50,15 @@ def enviar(numero, texto):
     }
     requests.post(url, headers=headers, json=payload)
 
-def enviar_make(dados):
-    requests.post(MAKE_WEBHOOK_URL, json=dados)
-    print("ENVIADO PARA MAKE:", dados)
-
 def menu(numero):
-    enviar(numero, "1 Cadastro\n2 Solicitação\n0 Sair")
+    enviar(numero, "🏆 LENDÁRIOS\n\n1 Cadastro\n2 Solicitação\n0 Sair")
+
+def menu_solicitacao(numero):
+    enviar(numero, "📋 SOLICITAÇÕES\n\n1 Nova solicitação\n2 Minhas solicitações\n0 Voltar")
+
+def enviar_make(url, dados):
+    requests.post(url, json=dados)
+    print("ENVIADO:", dados)
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
@@ -64,7 +72,6 @@ def webhook():
 
     try:
         value = data["entry"][0]["changes"][0]["value"]
-
         if "messages" not in value:
             return "ok"
 
@@ -72,104 +79,145 @@ def webhook():
         numero = normalizar(msg["from"])
         texto = msg["text"]["body"].strip().lower()
 
-        print("MSG:", numero, texto)
+        # ================= MENU PRINCIPAL =================
+        if numero not in usuarios and numero not in solicitacoes:
 
-        # INÍCIO
-        if numero not in usuarios:
             if texto == "1":
-                usuarios[numero] = {"etapa": "cpf", "cidades": [], "tipos": []}
+                usuarios[numero] = {"etapa": "cpf"}
                 enviar(numero, "Digite seu CPF:")
+                return "ok"
+
+            if texto == "2":
+                menu_solicitacao(numero)
+                solicitacoes[numero] = {"etapa": "menu"}
                 return "ok"
 
             menu(numero)
             return "ok"
 
-        u = usuarios[numero]
+        # ================= MENU SOLICITAÇÃO =================
+        if numero in solicitacoes:
 
-        # CPF
-        if u["etapa"] == "cpf":
-            u["cpf"] = texto
-            u["etapa"] = "nome"
-            enviar(numero, "Digite seu nome:")
-            return "ok"
+            s = solicitacoes[numero]
 
-        # NOME
-        if u["etapa"] == "nome":
-            u["nome"] = texto
-            u["etapa"] = "cidade"
+            if s["etapa"] == "menu":
 
-            lista = "\n".join([f"{k} {v}" for k,v in CIDADES.items()])
-            enviar(numero, "Escolha cidade:\n" + lista)
-            return "ok"
+                if texto == "1":
+                    s["etapa"] = "cpf"
+                    enviar(numero, "Digite seu CPF:")
+                    return "ok"
 
-        # CIDADE
-        if u["etapa"] == "cidade" and texto in CIDADES:
-            cidade = CIDADES[texto]
+                if texto == "2":
+                    enviar(numero, "📄 Em breve suas solicitações aparecerão aqui")
+                    return "ok"
 
-            if cidade not in u["cidades"]:
-                u["cidades"].append(cidade)
+                if texto == "0":
+                    del solicitacoes[numero]
+                    menu(numero)
+                    return "ok"
 
-            u["etapa"] = "cidade_mais"
-            enviar(numero, "Deseja adicionar mais cidade? (S/N)")
-            return "ok"
-
-        if u["etapa"] == "cidade_mais":
-            if texto in ["s", "sim"]:
-                lista = "\n".join([f"{k} {v}" for k,v in CIDADES.items() if v not in u["cidades"]])
-                u["etapa"] = "cidade"
-                enviar(numero, "Escolha outra cidade:\n" + lista)
+                menu_solicitacao(numero)
                 return "ok"
 
-            u["etapa"] = "tipo"
-            lista = "\n".join([f"{k} {v}" for k,v in TIPOS.items()])
-            enviar(numero, "Escolha tipo:\n" + lista)
-            return "ok"
-
-        # TIPO
-        if u["etapa"] == "tipo" and texto in TIPOS:
-            tipo = TIPOS[texto]
-
-            if tipo not in u["tipos"]:
-                u["tipos"].append(tipo)
-
-            u["etapa"] = "tipo_mais"
-            enviar(numero, "Deseja adicionar mais tipo? (S/N)")
-            return "ok"
-
-        if u["etapa"] == "tipo_mais":
-            if texto in ["s", "sim"]:
-                lista = "\n".join([f"{k} {v}" for k,v in TIPOS.items() if v not in u["tipos"]])
-                u["etapa"] = "tipo"
-                enviar(numero, "Escolha outro tipo:\n" + lista)
+            # CPF
+            if s["etapa"] == "cpf":
+                s["cpf"] = texto
+                s["etapa"] = "campo_nome"
+                enviar(numero, "Digite o nome do campo:")
                 return "ok"
 
-            u["etapa"] = "pix"
-            enviar(numero, "Digite sua chave PIX:")
-            return "ok"
+            # NOME CAMPO
+            if s["etapa"] == "campo_nome":
+                s["campo"] = texto
+                s["etapa"] = "tipo_campo"
 
-        # PIX 
-        if u["etapa"] == "pix":
-            u["pix"] = texto
+                lista = "\n".join([f"{k} {v}" for k,v in CAMPOS.items()])
+                enviar(numero, "Tipo de campo:\n" + lista)
+                return "ok"
 
-            enviar(numero, "Cadastro realizado com sucesso!")
+            # TIPO CAMPO
+            if s["etapa"] == "tipo_campo" and texto in CAMPOS:
+                s["tipo_campo"] = CAMPOS[texto]
+                s["etapa"] = "cidade"
 
-            dados = {
-                "cpf": u["cpf"],
-                "nome": u["nome"],
-                "cidades": ",".join(u["cidades"]),
-                "tipos": ",".join(u["tipos"]),
-                "pix": u["pix"],
-                "telefone": numero
-            }
+                lista = "\n".join([f"{k} {v}" for k,v in CIDADES.items()])
+                enviar(numero, "Cidade:\n" + lista)
+                return "ok"
 
-            enviar_make(dados)
+            # CIDADE
+            if s["etapa"] == "cidade" and texto in CIDADES:
+                s["cidade"] = CIDADES[texto]
+                s["etapa"] = "tipo"
 
-        
-            print("ENVIADO PARA MAKE:", dados)
+                lista = "\n".join([f"{k} {v[0]}" for k,v in TIPOS.items()])
+                enviar(numero, "Tipo atleta:\n" + lista)
+                return "ok"
 
+            # TIPO
+            if s["etapa"] == "tipo" and texto in TIPOS:
+                nome_tipo, valor = TIPOS[texto]
 
-            del usuarios[numero]
-            return "ok"
+                if "itens" not in s:
+                    s["itens"] = []
+
+                s["tipo_temp"] = (nome_tipo, valor)
+                s["etapa"] = "quantidade"
+                enviar(numero, f"Quantidade de {nome_tipo}:")
+                return "ok"
+
+            # QUANTIDADE
+            if s["etapa"] == "quantidade":
+                qtd = int(texto)
+                nome_tipo, valor = s["tipo_temp"]
+
+                s["itens"].append({
+                    "tipo": nome_tipo,
+                    "qtd": qtd,
+                    "valor": valor * qtd
+                })
+
+                s["etapa"] = "mais_tipo"
+                enviar(numero, "Adicionar outro tipo? (S/N)")
+                return "ok"
+
+            if s["etapa"] == "mais_tipo":
+                if texto in ["s", "sim"]:
+                    lista = "\n".join([f"{k} {v[0]}" for k,v in TIPOS.items()])
+                    s["etapa"] = "tipo"
+                    enviar(numero, "Escolha outro tipo:\n" + lista)
+                    return "ok"
+
+                # FINAL
+                total = sum(i["valor"] for i in s["itens"])
+
+                resumo = "\n".join([f"{i['tipo']} x{i['qtd']}" for i in s["itens"]])
+
+                enviar(numero,
+                    f"📋 SOLICITAÇÃO CONFIRMADA\n\n"
+                    f"Campo: {s['campo']}\n"
+                    f"Cidade: {s['cidade']}\n"
+                    f"Tipo: {s['tipo_campo']}\n\n"
+                    f"{resumo}\n\n"
+                    f"💰 Total: R$ {total}\n\n"
+                    f"✅ Sucesso!"
+                )
+
+                enviar_make(MAKE_SOLICITACOES, {
+                    "cpf": s["cpf"],
+                    "campo": s["campo"],
+                    "cidade": s["cidade"],
+                    "tipo_campo": s["tipo_campo"],
+                    "itens": resumo,
+                    "total": total,
+                    "telefone": numero
+                })
+
+                del solicitacoes[numero]
+                return "ok"
+
+        # fallback
+        menu(numero)
+        return "ok"
 
     except Exception as e:
         print("ERRO:", e)
