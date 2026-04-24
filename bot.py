@@ -3,6 +3,7 @@ import requests
 
 app = Flask(__name__)
 
+# ================= CONFIG =================
 TOKEN = "EAAsCShhhFUoBRdDdeZCOjR3J6MZB1kxRTsi14AplF0ZAyEa9kRgCo9Y8Xw8ZCspwGU6cr9iJgm6ZARTdTg9dR5mJjUpSeZBCZAkuZBAd191Jb5pT4y2KXA9AgRjtovhDcjGgiCN1Bw2dbzoDwq69wD9iUDMFFHXHjSyAfvBqZBaep1DW4iz6xa4cmyMfEiLX8K2C0xqbZARixrA9QVGaqPxeKrCOGsLmdbzyQZAOin0H8ZAp4ow1apZCspnJLkcZAHqijzKQcmMZCBXYHelAsCZCo7zMkZCdUZCXNq"
 PHONE_NUMBER_ID = "1094450353745202"
 VERIFY_TOKEN = "lendarios_token"
@@ -13,6 +14,7 @@ MAKE_SOLICITACOES = "SEU_WEBHOOK_SOLICITACOES"
 usuarios = {}
 solicitacoes = {}
 
+# ================= DADOS =================
 CIDADES = {
     "1": "São José",
     "2": "Palhoça",
@@ -33,6 +35,7 @@ CAMPOS = {
     "3": "Futsal"
 }
 
+# ================= FUNÇÕES =================
 def normalizar(numero):
     numero = "".join(filter(str.isdigit, numero))
     if numero.startswith("55") and len(numero) == 12:
@@ -50,16 +53,30 @@ def enviar(numero, texto):
     }
     requests.post(url, headers=headers, json=payload)
 
+def enviar_make(url, dados):
+    try:
+        requests.post(url, json=dados)
+        print("ENVIADO PARA MAKE:", dados)
+    except Exception as e:
+        print("ERRO MAKE:", e)
+
 def menu(numero):
-    enviar(numero, "🏆 LENDÁRIOS\n\n1 Cadastro\n2 Solicitação\n0 Sair")
+    enviar(numero,
+        "🏆 LENDÁRIOS\n\n"
+        "1 Cadastro\n"
+        "2 Solicitação\n"
+        "0 Sair"
+    )
 
 def menu_solicitacao(numero):
-    enviar(numero, "📋 SOLICITAÇÕES\n\n1 Nova solicitação\n2 Minhas solicitações\n0 Voltar")
+    enviar(numero,
+        "📋 SOLICITAÇÕES\n\n"
+        "1 Nova solicitação\n"
+        "2 Minhas solicitações\n"
+        "0 Voltar"
+    )
 
-def enviar_make(url, dados):
-    requests.post(url, json=dados)
-    print("ENVIADO:", dados)
-
+# ================= WEBHOOK =================
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
 
@@ -72,6 +89,7 @@ def webhook():
 
     try:
         value = data["entry"][0]["changes"][0]["value"]
+
         if "messages" not in value:
             return "ok"
 
@@ -79,25 +97,119 @@ def webhook():
         numero = normalizar(msg["from"])
         texto = msg["text"]["body"].strip().lower()
 
+        print("MSG:", numero, texto)
+
         # ================= MENU PRINCIPAL =================
         if numero not in usuarios and numero not in solicitacoes:
 
             if texto == "1":
-                usuarios[numero] = {"etapa": "cpf"}
+                usuarios[numero] = {
+                    "etapa": "cpf",
+                    "cidades": [],
+                    "tipos": []
+                }
                 enviar(numero, "Digite seu CPF:")
                 return "ok"
 
-            if texto == "2":
-                menu_solicitacao(numero)
+            elif texto == "2":
                 solicitacoes[numero] = {"etapa": "menu"}
+                menu_solicitacao(numero)
                 return "ok"
 
-            menu(numero)
-            return "ok"
+            else:
+                menu(numero)
+                return "ok"
 
-        # ================= MENU SOLICITAÇÃO =================
+        # ================= CADASTRO =================
+        if numero in usuarios:
+            u = usuarios[numero]
+
+            if u["etapa"] == "cpf":
+                u["cpf"] = texto
+                u["etapa"] = "nome"
+                enviar(numero, "Digite seu nome:")
+                return "ok"
+
+            if u["etapa"] == "nome":
+                u["nome"] = texto
+                u["etapa"] = "cidade"
+
+                lista = "\n".join([f"{k} {v}" for k,v in CIDADES.items()])
+                enviar(numero, "Escolha cidade:\n" + lista)
+                return "ok"
+
+            if u["etapa"] == "cidade" and texto in CIDADES:
+                cidade = CIDADES[texto]
+
+                if cidade not in u["cidades"]:
+                    u["cidades"].append(cidade)
+
+                u["etapa"] = "cidade_mais"
+                enviar(numero, "Adicionar mais cidade? (S/N)")
+                return "ok"
+
+            if u["etapa"] == "cidade_mais":
+
+                if texto in ["s", "sim"]:
+                    lista = "\n".join([
+                        f"{k} {v}" for k,v in CIDADES.items()
+                        if v not in u["cidades"]
+                    ])
+                    u["etapa"] = "cidade"
+                    enviar(numero, "Escolha outra cidade:\n" + lista)
+                    return "ok"
+
+                u["etapa"] = "tipo"
+                lista = "\n".join([f"{k} {v[0]}" for k,v in TIPOS.items()])
+                enviar(numero, "Escolha tipo:\n" + lista)
+                return "ok"
+
+            if u["etapa"] == "tipo" and texto in TIPOS:
+                tipo = TIPOS[texto][0]
+
+                if tipo not in u["tipos"]:
+                    u["tipos"].append(tipo)
+
+                u["etapa"] = "tipo_mais"
+                enviar(numero, "Adicionar mais tipo? (S/N)")
+                return "ok"
+
+            if u["etapa"] == "tipo_mais":
+
+                if texto in ["s", "sim"]:
+                    lista = "\n".join([
+                        f"{k} {v[0]}" for k,v in TIPOS.items()
+                        if v[0] not in u["tipos"]
+                    ])
+                    u["etapa"] = "tipo"
+                    enviar(numero, "Escolha outro tipo:\n" + lista)
+                    return "ok"
+
+                u["etapa"] = "pix"
+                enviar(numero, "Digite sua chave PIX:")
+                return "ok"
+
+            if u["etapa"] == "pix":
+                u["pix"] = texto
+
+                enviar(numero, "✅ Cadastro realizado com sucesso!")
+
+                dados = {
+                    "cpf": u["cpf"],
+                    "nome": u["nome"],
+                    "cidades": ",".join(u["cidades"]),
+                    "tipos": ",".join(u["tipos"]),
+                    "pix": u["pix"],
+                    "telefone": numero
+                }
+
+                enviar_make(MAKE_ATLETAS, dados)
+
+                del usuarios[numero]
+                return "ok"
+
+        # ================= SOLICITAÇÃO =================
         if numero in solicitacoes:
-
             s = solicitacoes[numero]
 
             if s["etapa"] == "menu":
@@ -107,27 +219,26 @@ def webhook():
                     enviar(numero, "Digite seu CPF:")
                     return "ok"
 
-                if texto == "2":
+                elif texto == "2":
                     enviar(numero, "📄 Em breve suas solicitações aparecerão aqui")
                     return "ok"
 
-                if texto == "0":
+                elif texto == "0":
                     del solicitacoes[numero]
                     menu(numero)
                     return "ok"
 
-                menu_solicitacao(numero)
-                return "ok"
+                else:
+                    menu_solicitacao(numero)
+                    return "ok"
 
-            # CPF
             if s["etapa"] == "cpf":
                 s["cpf"] = texto
-                s["etapa"] = "campo_nome"
+                s["etapa"] = "campo"
                 enviar(numero, "Digite o nome do campo:")
                 return "ok"
 
-            # NOME CAMPO
-            if s["etapa"] == "campo_nome":
+            if s["etapa"] == "campo":
                 s["campo"] = texto
                 s["etapa"] = "tipo_campo"
 
@@ -135,7 +246,6 @@ def webhook():
                 enviar(numero, "Tipo de campo:\n" + lista)
                 return "ok"
 
-            # TIPO CAMPO
             if s["etapa"] == "tipo_campo" and texto in CAMPOS:
                 s["tipo_campo"] = CAMPOS[texto]
                 s["etapa"] = "cidade"
@@ -144,7 +254,6 @@ def webhook():
                 enviar(numero, "Cidade:\n" + lista)
                 return "ok"
 
-            # CIDADE
             if s["etapa"] == "cidade" and texto in CIDADES:
                 s["cidade"] = CIDADES[texto]
                 s["etapa"] = "tipo"
@@ -153,43 +262,45 @@ def webhook():
                 enviar(numero, "Tipo atleta:\n" + lista)
                 return "ok"
 
-            # TIPO
             if s["etapa"] == "tipo" and texto in TIPOS:
-                nome_tipo, valor = TIPOS[texto]
+                nome, valor = TIPOS[texto]
 
                 if "itens" not in s:
                     s["itens"] = []
 
-                s["tipo_temp"] = (nome_tipo, valor)
-                s["etapa"] = "quantidade"
-                enviar(numero, f"Quantidade de {nome_tipo}:")
+                s["temp"] = (nome, valor)
+                s["etapa"] = "qtd"
+                enviar(numero, f"Quantidade de {nome}:")
                 return "ok"
 
-            # QUANTIDADE
-            if s["etapa"] == "quantidade":
-                qtd = int(texto)
-                nome_tipo, valor = s["tipo_temp"]
+            if s["etapa"] == "qtd":
+                try:
+                    qtd = int(texto)
+                except:
+                    enviar(numero, "Digite um número válido")
+                    return "ok"
+
+                nome, valor = s["temp"]
 
                 s["itens"].append({
-                    "tipo": nome_tipo,
+                    "tipo": nome,
                     "qtd": qtd,
-                    "valor": valor * qtd
+                    "valor": qtd * valor
                 })
 
-                s["etapa"] = "mais_tipo"
+                s["etapa"] = "mais"
                 enviar(numero, "Adicionar outro tipo? (S/N)")
                 return "ok"
 
-            if s["etapa"] == "mais_tipo":
+            if s["etapa"] == "mais":
+
                 if texto in ["s", "sim"]:
                     lista = "\n".join([f"{k} {v[0]}" for k,v in TIPOS.items()])
                     s["etapa"] = "tipo"
                     enviar(numero, "Escolha outro tipo:\n" + lista)
                     return "ok"
 
-                # FINAL
                 total = sum(i["valor"] for i in s["itens"])
-
                 resumo = "\n".join([f"{i['tipo']} x{i['qtd']}" for i in s["itens"]])
 
                 enviar(numero,
@@ -215,7 +326,6 @@ def webhook():
                 del solicitacoes[numero]
                 return "ok"
 
-        # fallback
         menu(numero)
         return "ok"
 
