@@ -4,7 +4,7 @@ import requests
 app = Flask(__name__)
 
 # ================= CONFIG =================
-TOKEN = "EAAsCShhhFUoBRdDdeZCOjR3J6MZB1kxRTsi14AplF0ZAyEa9kRgCo9Y8Xw8ZCspwGU6cr9iJgm6ZARTdTg9dR5mJjUpSeZBCZAkuZBAd191Jb5pT4y2KXA9AgRjtovhDcjGgiCN1Bw2dbzoDwq69wD9iUDMFFHXHjSyAfvBqZBaep1DW4iz6xa4cmyMfEiLX8K2C0xqbZARixrA9QVGaqPxeKrCOGsLmdbzyQZAOin0H8ZAp4ow1apZCspnJLkcZAHqijzKQcmMZCBXYHelAsCZCo7zMkZCdUZCXNq"
+TOKEN = "EAAsCShhhFUoBRUNWZBzVfFxZCLSwbQjzqr7Q8UZA2egc569rCR0vMPajdQdlmZBgvBHuUaZB90OVpqeHX1hxWbayWjbM9pg83nPyX9PgQicIVQM85EySAXhj2YMiQtrzh8u2CB9HD7hLh1GPI3NDxZA9XYqZAtIlauRYYzwWwyaFTG9HRDKT9BGphUc3b31uMuNwtOkoxOz7nBH4ZARWfTh3MZA78egJjOMbZAsbZAZC7Febwntgo9L0HcHCuOlhXZC1zXBID3zq7NY3yJTZCeZBWdGw6Fw5Q0GzgZDZD"
 PHONE_NUMBER_ID = "1094450353745202"
 VERIFY_TOKEN = "lendarios_token"
 
@@ -108,7 +108,7 @@ def webhook():
                     "cidades": [],
                     "tipos": []
                 }
-                enviar(numero, "🧑‍🦱 Digite seu CPF:")
+                enviar(numero, "Digite seu CPF:")
                 return "ok"
 
             elif texto == "2":
@@ -127,7 +127,7 @@ def webhook():
             if u["etapa"] == "cpf":
                 u["cpf"] = texto
                 u["etapa"] = "nome"
-                enviar(numero, "🧍 Digite seu nome:")
+                enviar(numero, "Digite seu nome:")
                 return "ok"
 
             if u["etapa"] == "nome":
@@ -135,7 +135,7 @@ def webhook():
                 u["etapa"] = "cidade"
 
                 lista = "\n".join([f"{k} {v}" for k,v in CIDADES.items()])
-                enviar(numero, "🌃 Escolha cidade:\n" + lista)
+                enviar(numero, "Escolha cidade:\n" + lista)
                 return "ok"
 
             if u["etapa"] == "cidade" and texto in CIDADES:
@@ -145,7 +145,7 @@ def webhook():
                     u["cidades"].append(cidade)
 
                 u["etapa"] = "cidade_mais"
-                enviar(numero, "🛖🛖 Adicionar mais cidade? (S/N)")
+                enviar(numero, "Adicionar mais cidade? (S/N)")
                 return "ok"
 
             if u["etapa"] == "cidade_mais":
@@ -156,12 +156,12 @@ def webhook():
                         if v not in u["cidades"]
                     ])
                     u["etapa"] = "cidade"
-                    enviar(numero, "🏡 Escolha outra cidade:\n" + lista)
+                    enviar(numero, "Escolha outra cidade:\n" + lista)
                     return "ok"
 
                 u["etapa"] = "tipo"
                 lista = "\n".join([f"{k} {v[0]}" for k,v in TIPOS.items()])
-                enviar(numero, "👋 Escolha tipo:\n" + lista)
+                enviar(numero, "Escolha tipo:\n" + lista)
                 return "ok"
 
             if u["etapa"] == "tipo" and texto in TIPOS:
@@ -171,7 +171,7 @@ def webhook():
                     u["tipos"].append(tipo)
 
                 u["etapa"] = "tipo_mais"
-                enviar(numero, "🫣 Adicionar mais tipo? (S/N)")
+                enviar(numero, "Adicionar mais tipo? (S/N)")
                 return "ok"
 
             if u["etapa"] == "tipo_mais":
@@ -182,11 +182,11 @@ def webhook():
                         if v[0] not in u["tipos"]
                     ])
                     u["etapa"] = "tipo"
-                    enviar(numero, "🫵 Escolha outro tipo:\n" + lista)
+                    enviar(numero, "Escolha outro tipo:\n" + lista)
                     return "ok"
 
                 u["etapa"] = "pix"
-                enviar(numero, "💲 Digite sua chave PIX:")
+                enviar(numero, "Digite sua chave PIX:")
                 return "ok"
 
             if u["etapa"] == "pix":
@@ -216,7 +216,7 @@ def webhook():
 
                 if texto == "1":
                     s["etapa"] = "cpf"
-                    enviar(numero, "🧔 Digite seu CPF:")
+                    enviar(numero, "Digite seu CPF:")
                     return "ok"
 
                 elif texto == "2":
@@ -235,7 +235,7 @@ def webhook():
             if s["etapa"] == "cpf":
                 s["cpf"] = texto
                 s["etapa"] = "campo"
-                enviar(numero, "🏷️ Digite o nome do campo:")
+                enviar(numero, "Digite o nome do campo:")
                 return "ok"
 
             if s["etapa"] == "campo":
@@ -243,7 +243,7 @@ def webhook():
                 s["etapa"] = "tipo_campo"
 
                 lista = "\n".join([f"{k} {v}" for k,v in CAMPOS.items()])
-                enviar(numero, "🏟️ Tipo de campo:\n" + lista)
+                enviar(numero, "Tipo de campo:\n" + lista)
                 return "ok"
 
             if s["etapa"] == "tipo_campo" and texto in CAMPOS:
@@ -251,7 +251,7 @@ def webhook():
                 s["etapa"] = "cidade"
 
                 lista = "\n".join([f"{k} {v}" for k,v in CIDADES.items()])
-                enviar(numero, "🏘️ Cidade:\n" + lista)
+                enviar(numero, "Cidade:\n" + lista)
                 return "ok"
 
             if s["etapa"] == "cidade" and texto in CIDADES:
@@ -259,7 +259,7 @@ def webhook():
                 s["etapa"] = "tipo"
 
                 lista = "\n".join([f"{k} {v[0]}" for k,v in TIPOS.items()])
-                enviar(numero, "🏋️ Tipo atleta:\n" + lista)
+                enviar(numero, "Tipo atleta:\n" + lista)
                 return "ok"
 
             if s["etapa"] == "tipo" and texto in TIPOS:
@@ -270,14 +270,14 @@ def webhook():
 
                 s["temp"] = (nome, valor)
                 s["etapa"] = "qtd"
-                enviar(numero, f"💥 Quantidade de {nome}:")
+                enviar(numero, f"Quantidade de {nome}:")
                 return "ok"
 
             if s["etapa"] == "qtd":
                 try:
                     qtd = int(texto)
                 except:
-                    enviar(numero, "👎 Digite um número válido")
+                    enviar(numero, "Digite um número válido")
                     return "ok"
 
                 nome, valor = s["temp"]
@@ -289,7 +289,7 @@ def webhook():
                 })
 
                 s["etapa"] = "mais"
-                enviar(numero, "😁 Adicionar outro tipo? (S/N)")
+                enviar(numero, "Adicionar outro tipo? (S/N)")
                 return "ok"
 
             if s["etapa"] == "mais":
@@ -297,7 +297,7 @@ def webhook():
                 if texto in ["s", "sim"]:
                     lista = "\n".join([f"{k} {v[0]}" for k,v in TIPOS.items()])
                     s["etapa"] = "tipo"
-                    enviar(numero, "😅 Escolha outro tipo:\n" + lista)
+                    enviar(numero, "Escolha outro tipo:\n" + lista)
                     return "ok"
 
                 total = sum(i["valor"] for i in s["itens"])
