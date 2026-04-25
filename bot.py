@@ -4,12 +4,12 @@ import requests
 app = Flask(__name__)
 
 # ================= CONFIG =================
-TOKEN = "EAAsCShhhFUoBRdjddY4HwSOxjUpEFs6kAZBTd7uR5Vj4PgFxsZC6VRvIP88esZAZBN6JiZCZB4dPF1D03CTnbSxHtspGZChTw9jGlczXF5IvZBoDZAI6PfPXmF711ITpL6Bfuhhx0XMHiFh6SsUxg6xtFZC0gg8WjOI7ckbPSibYcUybvX2h7hVLJqN0BbIEmVJ0Lo90jiprxf3np6EW4kndd4XuacOrNOPWVsWanWa3CVPlfgcSc0FeCi6L1oxcUZCqAKjXpASgHxyz1WZCXOGXXwZB82rth"
-PHONE_NUMBER_ID = "1094450353745202"
+TOKEN = "SEU_TOKEN"
+PHONE_NUMBER_IDEAAsCShhhFUoBRdjddY4HwSOxjUpEFs6kAZBTd7uR5Vj4PgFxsZC6VRvIP88esZAZBN6JiZCZB4dPF1D03CTnbSxHtspGZChTw9jGlczXF5IvZBoDZAI6PfPXmF711ITpL6Bfuhhx0XMHiFh6SsUxg6xtFZC0gg8WjOI7ckbPSibYcUybvX2h7hVLJqN0BbIEmVJ0Lo90jiprxf3np6EW4kndd4XuacOrNOPWVsWanWa3CVPlfgcSc0FeCi6L1oxcUZCqAKjXpASgHxyz1WZCXOGXXwZB82rth = "1094450353745202"
 VERIFY_TOKEN = "lendarios_token"
 
-MAKE_ATLETAS = "https://hook.us2.make.com/pcgibko4cd3yqr5375q4nsy5fgpip4m2"
-MAKE_SOLICITACOES = "https://hook.us2.make.com/bn98lhclge5oksdyrsid89fxi2jsls2q"
+# 🔗 APENAS 1 WEBHOOK (MAKE)
+MAKE_WEBHOOK = "https://hook.us2.make.com/pcgibko4cd3yqr5375q4nsy5fgpip4m2"
 
 usuarios = {}
 solicitacoes = {}
@@ -53,12 +53,12 @@ def enviar(numero, texto):
     }
     requests.post(url, headers=headers, json=payload)
 
-def enviar_make(url, dados):
+def enviar_make(dados):
     try:
-        requests.post(url, json=dados)
+        requests.post(MAKE_WEBHOOK, json=dados)
         print("ENVIADO PARA MAKE:", dados)
     except Exception as e:
-        print("ERRO MAKE:", e)
+        print("ERRO AO ENVIAR:", e)
 
 def menu(numero):
     enviar(numero,
@@ -194,16 +194,15 @@ def webhook():
 
                 enviar(numero, "✅ Cadastro realizado com sucesso!")
 
-                dados = {
+                enviar_make({
+                    "tipo": "cadastro",
                     "cpf": u["cpf"],
                     "nome": u["nome"],
                     "cidades": ",".join(u["cidades"]),
                     "tipos": ",".join(u["tipos"]),
                     "pix": u["pix"],
                     "telefone": numero
-                }
-
-                enviar_make(MAKE_ATLETAS, dados)
+                })
 
                 del usuarios[numero]
                 return "ok"
@@ -313,7 +312,8 @@ def webhook():
                     f"✅ Sucesso!"
                 )
 
-                enviar_make(MAKE_SOLICITACOES, {
+                enviar_make({
+                    "tipo": "solicitacao",
                     "cpf": s["cpf"],
                     "campo": s["campo"],
                     "cidade": s["cidade"],
