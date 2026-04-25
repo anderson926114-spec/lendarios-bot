@@ -8,8 +8,8 @@ TOKEN = "EAAsCShhhFUoBRW1ttYCKuIidqwDwA4syNrZATR2gYS6spDRFI8QlHJ7uvLKAmZB8PJmWMX
 PHONE_NUMBER_ID = "1094450353745202"
 VERIFY_TOKEN = "lendarios_token"
 
-MAKE_ATLETAS = "SEU_WEBHOOK_ATLETAS"
-MAKE_SOLICITACOES = "SEU_WEBHOOK_SOLICITACOES"
+MAKE_ATLETAS = "https://hook.us2.make.com/pcgibko4cd3yqr5375q4nsy5fgpip4m2"
+MAKE_SOLICITACOES = "https://hook.us2.make.com/bn98lhclge5oksdyrsid89fxi2jsls2q"
 
 usuarios = {}
 solicitacoes = {}
