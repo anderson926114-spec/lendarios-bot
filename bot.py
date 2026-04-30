@@ -347,7 +347,7 @@ def home():
 
 if __name__ == "__main__":
     app.run(port=5000)
-"
+
 PHONE_NUMBER_ID = "1094450353745202"
 VERIFY_TOKEN = "lendarios_token"
 
