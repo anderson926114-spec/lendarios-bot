@@ -4,7 +4,7 @@ import requests
 app = Flask(__name__)
 
 # ================= CONFIG =================
-TOKEN = "from flask import Flask, request
+TOKEN = "from flask import Flask, request"
 import requests
 
 app = Flask(__name__)
