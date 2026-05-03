@@ -9,7 +9,7 @@ PHONE_NUMBER_ID = os.getenv("1094450353745202")
 VERIFY_TOKEN = os.getenv("lendarios_token")
 
 SUPABASE_URL = os.getenv("https://lhrovzoayhxmhdlmznnx.supabase.co")
-SUPABASE_KEY = os.getenv("sb_publishable_WJ-gbgLNK9_74ASgrjf6dA_tFKf0tRr")
+SUPABASE_KEY = os.getenv("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxocm92em9heWh4bWhkbG16bm54Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzUxNjMwNCwiZXhwIjoyMDkzMDkyMzA0fQ.xL2a99JJ2WEReOh1inLk0ip3-Z4aBBrZxP-RwG_bwM8")
 
 print("URL:", SUPABASE_URL)
 print("KEY:", SUPABASE_KEY)
