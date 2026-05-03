@@ -5,13 +5,13 @@ from supabase import create_client
 app = Flask(__name__)
 
 # ===== CONFIG =====
-TOKEN = "EAAsCShhhFUoBRVjnvF5OdxJnHWv5m0nCGE6dk4ZACaNM7BfhAagUCWJyBdoVMgvZAZBKsRNbiWR4OAIVeBh0xn9H4uuUfLbZBLcOhJLaLtsDEZCmCeFghvLgZCgA9Nwiq30eZB6uBvF9vBdsHxbs7QX8sfa1IfYVPyd6GKIxPLptbKfAoOye87aacVdJEEFOUH46cKt5O1m8Ce5DOeEXRoWJZCAiNC2ZB4YUPAj1IOFaFGhL3bdXZCdwwPP83Vk0yfewEHZCO1ixWVuBVw8wPajinVwkybW"
+TOKEN = "EAAsCShhhFUoBRTF8rEGtaXEh6UES9mEiu9pXyNTLZBfluXfyLBY3ZARCzj6fElBYGe26Ogdz4QS306Qf977w7X38PqABTRpeJ4G0YNUefup4oOn8V6ToZBHgrQCf9JuZC5JE1avatcevENYN2e5ipc609qJdLmVdtWeL3BmoZAdQCjsEIR2sU9p1dFRqaJH14VqkMMWuzQXedMIe7yg2obx3c1JpuWPlJmlHIj4BWXzGnnXJjm6MPDz6Ko9lhTNfsSxD9SWGCoj1SfLZC4KZAOUaJPc"
 PHONE_NUMBER_ID = "1094450353745202"
 VERIFY_TOKEN = "lendarios_token"
 
 MAKE_WEBHOOK = "https://hook.us2.make.com/pcgibko4cd3yqr5375q4nsy5fgpip4m2"
 
-SUPABASE_URL = "https://lhrovzoayhxmhdlmznnx.supabase.co/rest/v1/"
+SUPABASE_URL = "https://lhrovzoayhxmhdlmznnx.supabase.co"
 SUPABASE_KEY = "sb_publishable_WJ-gbgLNK9_74ASgrjf6dA_tFKf0tRr"
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -26,7 +26,10 @@ def normalizar(numero):
 
 def enviar(numero, texto):
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-    headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {TOKEN}",
+        "Content-Type": "application/json"
+    }
     payload = {
         "messaging_product": "whatsapp",
         "to": numero,
@@ -36,7 +39,10 @@ def enviar(numero, texto):
     requests.post(url, headers=headers, json=payload)
 
 def enviar_make(dados):
-    requests.post(MAKE_WEBHOOK, json=dados)
+    try:
+        requests.post(MAKE_WEBHOOK, json=dados)
+    except:
+        pass
 
 # ===== BANCO =====
 
@@ -55,6 +61,17 @@ def save_user(numero, tipo, etapa, dados):
 def delete_user(numero):
     supabase.table("usuarios").delete().eq("telefone", numero).execute()
 
+def salvar_solicitacao(dados):
+    supabase.table("solicitacoes").insert({
+        "cpf": dados.get("cpf"),
+        "campo": dados.get("campo"),
+        "cidade": dados.get("cidade"),
+        "tipo_campo": dados.get("tipo_campo", ""),
+        "itens": f"{dados.get('quantidade')} jogadores",
+        "total": 0,
+        "telefone": dados.get("telefone")
+    }).execute()
+
 # ===== WEBHOOK =====
 
 @app.route("/webhook", methods=["GET", "POST"])
@@ -68,7 +85,12 @@ def webhook():
     data = request.get_json()
 
     try:
-        msg = data["entry"][0]["changes"][0]["value"]["messages"][0]
+        value = data["entry"][0]["changes"][0]["value"]
+
+        if "messages" not in value:
+            return "ok"
+
+        msg = value["messages"][0]
         numero = normalizar(msg["from"])
         texto = msg["text"]["body"].strip().lower()
 
@@ -100,25 +122,25 @@ def webhook():
             if etapa == "cpf":
                 dados["cpf"] = texto
                 save_user(numero, tipo, "nome", dados)
-                enviar(numero, "Nome:")
+                enviar(numero, "Digite seu nome:")
                 return "ok"
 
             if etapa == "nome":
                 dados["nome"] = texto
                 save_user(numero, tipo, "cidade", dados)
-                enviar(numero, "Cidade:")
+                enviar(numero, "Digite sua cidade:")
                 return "ok"
 
             if etapa == "cidade":
                 dados["cidade"] = texto
                 save_user(numero, tipo, "tipo", dados)
-                enviar(numero, "Tipo:")
+                enviar(numero, "Digite seu tipo (ex: goleiro):")
                 return "ok"
 
             if etapa == "tipo":
                 dados["tipo"] = texto
                 save_user(numero, tipo, "pix", dados)
-                enviar(numero, "PIX:")
+                enviar(numero, "Digite sua chave PIX:")
                 return "ok"
 
             if etapa == "pix":
@@ -140,7 +162,7 @@ def webhook():
             if etapa == "cpf":
                 dados["cpf"] = texto
                 save_user(numero, tipo, "campo", dados)
-                enviar(numero, "Campo:")
+                enviar(numero, "Nome do campo:")
                 return "ok"
 
             if etapa == "campo":
@@ -151,20 +173,30 @@ def webhook():
 
             if etapa == "cidade":
                 dados["cidade"] = texto
+                save_user(numero, tipo, "tipo_campo", dados)
+                enviar(numero, "Tipo do campo (futsal, society...):")
+                return "ok"
+
+            if etapa == "tipo_campo":
+                dados["tipo_campo"] = texto
                 save_user(numero, tipo, "quantidade", dados)
-                enviar(numero, "Quantidade:")
+                enviar(numero, "Quantidade de jogadores:")
                 return "ok"
 
             if etapa == "quantidade":
                 dados["quantidade"] = texto
+                dados["telefone"] = numero
 
+                # SALVA NO SUPABASE
+                salvar_solicitacao(dados)
+
+                # ENVIA PRO MAKE
                 enviar_make({
                     "tipo": "solicitacao",
-                    **dados,
-                    "telefone": numero
+                    **dados
                 })
 
-                enviar(numero, "Solicitação enviada!")
+                enviar(numero, "Solicitação enviada com sucesso!")
                 delete_user(numero)
                 return "ok"
 
