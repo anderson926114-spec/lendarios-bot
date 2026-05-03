@@ -11,6 +11,9 @@ VERIFY_TOKEN = os.getenv("lendarios_token")
 SUPABASE_URL = os.getenv("https://lhrovzoayhxmhdlmznnx.supabase.co")
 SUPABASE_KEY = os.getenv("sb_publishable_WJ-gbgLNK9_74ASgrjf6dA_tFKf0tRr")
 
+print("URL:", SUPABASE_URL)
+print("KEY:", SUPABASE_KEY)
+
 HEADERS = {
     "apikey": SUPABASE_KEY,
     "Authorization": f"Bearer {SUPABASE_KEY}",
