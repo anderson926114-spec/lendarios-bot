@@ -4,12 +4,13 @@ import os
 
 app = Flask(__name__)
 
-TOKEN = os.getenv("EAAsCShhhFUoBRUZC3yr0vD9b7czmdS5V5QP6s5cCsc7ObzHbrBcMhRM2Dud8VL63spa9yfzmlCYEnogM4UnGsND9djQ62dbZAZBlbKji6hYtKd8txTDaU6iZCXepvWN1rU2s7dfqbgIdXsiWaIlhWszKmzluN3MCVzc3oZBOzErFfgCQ6nruCg1peQNCcB8aNfz7EfYDVPukgCOXysKmjlV2MJZA3mu9ggOyxknSl9nFgnVJykV3FrhH4IXo042JbPoLFvQ4B9YZCrQZB6nktqsg4y3P")
-PHONE_NUMBER_ID = os.getenv("1094450353745202")
-VERIFY_TOKEN = os.getenv("lendarios_token")
+# ================= VARIÁVEIS =================
+TOKEN = os.getenv("TOKEN")
+PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 
-SUPABASE_URL = os.getenv("https://lhrovzoayhxmhdlmznnx.supabase.co")
-SUPABASE_KEY = os.getenv("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxocm92em9heWh4bWhkbG16bm54Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzUxNjMwNCwiZXhwIjoyMDkzMDkyMzA0fQ.xL2a99JJ2WEReOh1inLk0ip3-Z4aBBrZxP-RwG_bwM8")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 print("URL:", SUPABASE_URL)
 print("KEY:", SUPABASE_KEY)
@@ -36,13 +37,16 @@ def enviar(numero, texto):
 
 # ================= BANCO =================
 def get_usuario(numero):
-    r = requests.get(f"{SUPABASE_URL}/rest/v1/usuarios?telefone=eq.{numero}", headers=HEADERS)
+    url = f"{SUPABASE_URL}/rest/v1/usuarios?telefone=eq.{numero}"
+    r = requests.get(url, headers=HEADERS)
     data = r.json()
     return data[0] if data else None
 
-def salvar_usuario(numero, dados):
-    dados["telefone"] = numero
-    requests.post(f"{SUPABASE_URL}/rest/v1/usuarios", headers=HEADERS, json=dados)
+def criar_usuario(numero, etapa):
+    requests.post(f"{SUPABASE_URL}/rest/v1/usuarios", headers=HEADERS, json={
+        "telefone": numero,
+        "etapa": etapa
+    })
 
 def atualizar_usuario(numero, dados):
     requests.patch(f"{SUPABASE_URL}/rest/v1/usuarios?telefone=eq.{numero}", headers=HEADERS, json=dados)
@@ -73,12 +77,12 @@ def webhook():
         # ================= MENU =================
         if not user:
             if texto.startswith("1"):
-                salvar_usuario(numero, {"etapa": "cpf"})
+                criar_usuario(numero, "cpf")
                 enviar(numero, "Digite seu CPF:")
                 return "ok"
 
             elif texto.startswith("2"):
-                salvar_usuario(numero, {"etapa": "s_cpf"})
+                criar_usuario(numero, "s_cpf")
                 enviar(numero, "Digite seu CPF:")
                 return "ok"
 
@@ -86,7 +90,7 @@ def webhook():
                 enviar(numero, "🏆 LENDÁRIOS\n\n1 Cadastro\n2 Solicitação")
                 return "ok"
 
-        etapa = user["etapa"]
+        etapa = user.get("etapa")
 
         # ================= CADASTRO =================
         if etapa == "cpf":
@@ -96,37 +100,36 @@ def webhook():
 
         if etapa == "nome":
             atualizar_usuario(numero, {"nome": texto, "etapa": "pix"})
-            enviar(numero, "Digite seu PIX:")
+            enviar(numero, "Digite sua chave PIX:")
             return "ok"
 
         if etapa == "pix":
             atualizar_usuario(numero, {"pix": texto, "etapa": "final"})
-            enviar(numero, "✅ Cadastro finalizado!")
+            enviar(numero, "✅ Cadastro finalizado com sucesso!")
             return "ok"
 
         # ================= SOLICITAÇÃO =================
         if etapa == "s_cpf":
             atualizar_usuario(numero, {"cpf": texto, "etapa": "campo"})
-            enviar(numero, "Nome do campo:")
+            enviar(numero, "Digite o nome do campo:")
             return "ok"
 
         if etapa == "campo":
             atualizar_usuario(numero, {"campo": texto, "etapa": "cidade"})
-            enviar(numero, "Cidade:")
+            enviar(numero, "Digite a cidade:")
             return "ok"
 
         if etapa == "cidade":
             atualizar_usuario(numero, {"cidade": texto, "etapa": "final_s"})
-            enviar(numero, "Finalizando...")
-            
+
             salvar_solicitacao({
                 "telefone": numero,
                 "cpf": user.get("cpf"),
-                "campo": texto,
+                "campo": user.get("campo"),
                 "cidade": texto
             })
 
-            enviar(numero, "✅ Solicitação enviada!")
+            enviar(numero, "✅ Solicitação enviada com sucesso!")
             return "ok"
 
     except Exception as e:
@@ -140,4 +143,3 @@ def home():
 
 if __name__ == "__main__":
     app.run()
-
